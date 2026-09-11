@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Real-Time Collaborative Drawing Canvas</title>
+  <title>Real-Time Collaborative Drawing Canvas Engine</title>
   <link rel="stylesheet" href="./styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,7 +15,7 @@
     <header class="app-header">
       <div class="brand">
         <div class="brand-icon">🎨</div>
-        <h1>Collaborative Canvas</h1>
+        <h1>Collaborative Canvas Engine</h1>
         <span id="room-badge" class="room-badge">Room: default</span>
       </div>
 
@@ -70,13 +70,25 @@
         </div>
 
         <div class="tool-section">
-          <label class="section-title">Navigation & Selection</label>
+          <label class="section-title">Navigation & Select</label>
           <div class="btn-grid">
-            <button id="btn-select" class="tool-btn" title="Select & Move Shapes (S)">
+            <button id="btn-select" class="tool-btn" title="Select & Drag Objects (S)">
               🎯 Select
             </button>
             <button id="btn-pan" class="tool-btn" title="Pan Canvas (Space / P)">
               🖐️ Pan
+            </button>
+          </div>
+        </div>
+
+        <div class="tool-section">
+          <label class="section-title">Smart Grid & Snapping</label>
+          <div class="btn-group">
+            <button id="btn-grid-toggle" class="action-btn" title="Toggle Grid Mode">
+              🌐 Grid
+            </button>
+            <button id="btn-snap-toggle" class="action-btn active" title="Toggle Snap to Grid">
+              🧲 Snap
             </button>
           </div>
         </div>
@@ -142,23 +154,44 @@
         </div>
       </aside>
 
-      <!-- Canvas Area -->
+      <!-- Canvas Area Viewport -->
       <div class="canvas-viewport" id="canvas-viewport">
         <!-- Main Drawing Canvas -->
         <canvas id="drawing-canvas"></canvas>
         <!-- Remote Cursor Overlay Canvas -->
         <div id="cursor-overlay" class="cursor-overlay"></div>
+
+        <!-- Floating Time-Lapse Replay Control Bar -->
+        <div class="replay-bar" id="replay-bar">
+          <button id="btn-replay-play" class="replay-btn" title="Play Time-Lapse Replay">▶️</button>
+          <button id="btn-replay-pause" class="replay-btn" title="Pause Replay">⏸️</button>
+          <input type="range" id="replay-slider" min="0" max="0" value="0" class="replay-slider" />
+          <span id="replay-counter" class="replay-counter">0 / 0</span>
+          <button id="btn-replay-speed" class="replay-speed-btn" title="Replay Speed">1x</button>
+        </div>
       </div>
 
-      <!-- Online Users Panel -->
-      <aside class="presence-panel">
-        <div class="presence-header">
-          <h3>Online Users</h3>
-          <span id="user-count-badge" class="user-count-badge">0</span>
+      <!-- Right Sidebar Panel (Presence & Layers) -->
+      <aside class="right-panel">
+        <div class="panel-section">
+          <div class="panel-header">
+            <h3>Online Users</h3>
+            <span id="user-count-badge" class="user-count-badge">0</span>
+          </div>
+          <ul id="user-list" class="user-list">
+            <!-- Populated dynamically -->
+          </ul>
         </div>
-        <ul id="user-list" class="user-list">
-          <!-- Populated dynamically -->
-        </ul>
+
+        <div class="panel-section">
+          <div class="panel-header">
+            <h3>Layers</h3>
+            <button id="btn-add-layer" class="small-add-btn" title="Add New Layer">+</button>
+          </div>
+          <ul id="layer-list" class="layer-list">
+            <!-- Populated dynamically -->
+          </ul>
+        </div>
       </aside>
     </main>
   </div>

@@ -4,6 +4,8 @@ import { InputHandler } from './canvas/InputHandler';
 import { SocketClient } from './network/SocketClient';
 import { DrawingStore } from './state/DrawingStore';
 import { Cursors } from './ui/Cursors';
+import { LayersPanel } from './ui/LayersPanel';
+import { ReplayBar } from './ui/ReplayBar';
 import { StatusIndicator } from './ui/StatusIndicator';
 import { Toolbar } from './ui/Toolbar';
 import { UserList } from './ui/UserList';
@@ -19,12 +21,22 @@ class App {
   private socketClient: SocketClient;
   private statusIndicator: StatusIndicator;
   private userList: UserList;
+  private layersPanel: LayersPanel;
+  private replayBar: ReplayBar;
   private cursors: Cursors;
 
   private currentOpId: string | null = null;
   private currentOpPoints: Point[] = [];
   private selectedOpId: string | null = null;
+  private selectedOpStartPoints: Point[] = [];
+
   private roomId: string = 'default';
+
+  // Time-Lapse Replay State
+  private isReplaying: boolean = false;
+  private replayIndex: number = 0;
+  private replayTimer: number | null = null;
+  private replaySpeed: number = 1;
 
   // FPS & Zoom Stats
   private frameCount: number = 0;
@@ -33,7 +45,6 @@ class App {
   private zoomEl: HTMLElement | null = null;
 
   constructor() {
-    // Parse room ID from URL query parameters (e.g. /?room=demo123)
     const urlParams = new URLSearchParams(window.location.search);
     this.roomId = urlParams.get('room')?.trim() || 'default';
     this.updateRoomBadge(this.roomId);
@@ -50,7 +61,23 @@ class App {
     this.fpsEl = document.getElementById('stat-fps');
     this.zoomEl = document.getElementById('stat-zoom');
 
-    // UI Toolbar
+    // Layers Panel
+    this.layersPanel = new LayersPanel({
+      onLayerSelect: () => this.triggerRedraw(),
+      onLayerAdd: () => this.triggerRedraw(),
+      onLayerToggleVisibility: () => this.triggerRedraw(),
+      onLayerToggleLock: () => this.triggerRedraw(),
+    });
+
+    // Time-Lapse Replay Bar
+    this.replayBar = new ReplayBar({
+      onPlay: () => this.startReplay(),
+      onPause: () => this.pauseReplay(),
+      onScrub: (idx) => this.scrubReplay(idx),
+      onSpeedChange: (speed) => (this.replaySpeed = speed),
+    });
+
+    // Toolbar Controls
     this.toolbar = new Toolbar({
       onToolChange: () => {
         this.selectedOpId = null;
@@ -63,6 +90,8 @@ class App {
       onZoomIn: () => this.canvasManager.setZoom(this.canvasManager.getZoom() * 1.2),
       onZoomOut: () => this.canvasManager.setZoom(this.canvasManager.getZoom() / 1.2),
       onZoomReset: () => this.canvasManager.resetCamera(),
+      onToggleGrid: () => this.canvasManager.toggleGridMode(),
+      onToggleSnap: () => this.canvasManager.toggleSnapToGrid(),
       onExportPNG: () => CanvasExporter.exportToPNG(this.canvasManager.getCanvas(), `drawing-${this.roomId}.png`),
       onExportSVG: () =>
         CanvasExporter.exportToSVG(
@@ -84,7 +113,7 @@ class App {
     // Pointer Input Handler
     this.inputHandler = new InputHandler(this.canvasManager, () => this.toolbar.getTool(), {
       onStrokeStart: (point) => this.handleStrokeStart(point),
-      onStrokeMove: (point, prevPoint) => this.handleStrokeMove(point, prevPoint),
+      onStrokeMove: (point, prevPoint, shiftKey) => this.handleStrokeMove(point, prevPoint, shiftKey),
       onStrokeEnd: () => this.handleStrokeEnd(),
       onCursorMove: (point) => this.socketClient.emitCursorMove(point),
       onPan: (dx, dy) => this.canvasManager.setPan(dx, dy),
@@ -93,15 +122,36 @@ class App {
       onSelectClick: (point) => this.handleSelectClick(point),
     });
 
-    // Redraw loop & subscription
     this.canvasManager.setResizeCallback(() => this.triggerRedraw());
-    this.store.subscribe(() => this.triggerRedraw());
+    this.store.subscribe(() => {
+      this.triggerRedraw();
+      this.updateReplayBar();
+    });
 
     this.startFpsLoop();
   }
 
   private triggerRedraw(): void {
-    this.renderer.reconstructCanvas(this.store.getOperations(), this.selectedOpId);
+    if (this.isReplaying) {
+      const activeOps = this.store
+        .getOperations()
+        .filter((o) => o.active)
+        .sort((a, b) => a.sequence - b.sequence)
+        .slice(0, this.replayIndex);
+      this.renderer.reconstructCanvas(activeOps, null);
+      return;
+    }
+
+    // Filter operations by visible layers
+    const visibleLayerIds = new Set(
+      this.layersPanel
+        .getLayers()
+        .filter((l) => l.visible)
+        .map((l) => l.id)
+    );
+
+    const ops = this.store.getOperations().filter((op) => !op.layerId || visibleLayerIds.has(op.layerId));
+    this.renderer.reconstructCanvas(ops, this.selectedOpId);
     this.updateStats();
   }
 
@@ -111,6 +161,7 @@ class App {
 
     const color = this.toolbar.getColor();
     const width = this.toolbar.getWidth();
+    const layerId = this.layersPanel.getActiveLayerId();
 
     this.currentOpId = `op_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.currentOpPoints = [point];
@@ -122,10 +173,26 @@ class App {
     this.socketClient.emitStrokeStart(this.currentOpId, tool, color, width, point);
   }
 
-  private handleStrokeMove(point: Point, prevPoint: Point): void {
+  private handleStrokeMove(point: Point, prevPoint: Point, shiftKey: boolean): void {
+    const tool = this.toolbar.getTool();
+
+    // Drag-to-Move Selected Object
+    if (tool === 'select' && this.selectedOpId) {
+      const selectedOp = this.store.getOperations().find((o) => o.id === this.selectedOpId);
+      if (selectedOp && selectedOp.points) {
+        const deltaX = point.x - prevPoint.x;
+        const deltaY = point.y - prevPoint.y;
+        selectedOp.points.forEach((p) => {
+          p.x += deltaX;
+          p.y += deltaY;
+        });
+        this.triggerRedraw();
+      }
+      return;
+    }
+
     if (!this.currentOpId) return;
 
-    const tool = this.toolbar.getTool();
     const color = this.toolbar.getColor();
     const width = this.toolbar.getWidth();
 
@@ -134,11 +201,31 @@ class App {
       this.renderer.renderSegment(tool, color, width, prevPoint, point);
       this.socketClient.emitStrokePoint(this.currentOpId, point);
     } else {
-      // Shape tools (line, rectangle, ellipse): Live Ghosting Preview
-      this.currentOpPoints = [this.currentOpPoints[0], point];
+      // Shape tools with Shift key aspect ratio constraining
+      let endPoint = point;
+      if (shiftKey && this.currentOpPoints.length > 0) {
+        const start = this.currentOpPoints[0];
+        const dx = Math.abs(point.x - start.x);
+        const dy = Math.abs(point.y - start.y);
+        const maxDist = Math.max(dx, dy);
+
+        if (tool === 'rectangle' || tool === 'ellipse') {
+          // Constrain 1:1 Aspect Ratio (Square / Circle)
+          endPoint = {
+            x: start.x + (point.x >= start.x ? maxDist : -maxDist),
+            y: start.y + (point.y >= start.y ? maxDist : -maxDist),
+          };
+        } else if (tool === 'line') {
+          // Constrain 45-degree angle increments
+          if (dx > dy * 2) endPoint = { x: point.x, y: start.y };
+          else if (dy > dx * 2) endPoint = { x: start.x, y: point.y };
+          else endPoint = { x: start.x + (point.x >= start.x ? maxDist : -maxDist), y: start.y + (point.y >= start.y ? maxDist : -maxDist) };
+        }
+      }
+
+      this.currentOpPoints = [this.currentOpPoints[0], endPoint];
       this.triggerRedraw();
 
-      // Render live preview shape overlay
       const previewOp: DrawingOperation = {
         id: this.currentOpId,
         sequence: 999999,
@@ -158,7 +245,6 @@ class App {
 
     const tool = this.toolbar.getTool();
     if (tool !== 'brush' && tool !== 'eraser') {
-      // For shape tools, send the final end point chunk
       if (this.currentOpPoints.length >= 2) {
         this.socketClient.emitStrokePoint(this.currentOpId, this.currentOpPoints[1]);
       }
@@ -179,7 +265,6 @@ class App {
     const opId = `op_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     this.socketClient.emitStrokeStart(opId, tool, color, width, point);
-    // Send text payload chunk
     this.socketClient.emitStrokeEnd(opId);
   }
 
@@ -187,7 +272,7 @@ class App {
     const ops = this.store
       .getOperations()
       .filter((o) => o.active)
-      .sort((a, b) => b.sequence - a.sequence); // Topmost first
+      .sort((a, b) => b.sequence - a.sequence);
 
     const cssW = this.canvasManager.getCSSWidth();
     const cssH = this.canvasManager.getCSSHeight();
@@ -207,7 +292,7 @@ class App {
         if (p.y > maxY) maxY = p.y;
       });
 
-      const padding = 10;
+      const padding = 12;
       if (
         clickPx.x >= minX - padding &&
         clickPx.x <= maxX + padding &&
@@ -221,6 +306,60 @@ class App {
 
     this.selectedOpId = foundOp ? foundOp.id : null;
     this.triggerRedraw();
+  }
+
+  // --- Time-Lapse Replay Engine ---
+
+  private startReplay(): void {
+    const activeOps = this.store.getOperations().filter((o) => o.active);
+    if (activeOps.length === 0) return;
+
+    this.isReplaying = true;
+    if (this.replayIndex >= activeOps.length) {
+      this.replayIndex = 0;
+    }
+
+    this.stepReplay();
+  }
+
+  private stepReplay(): void {
+    const activeOps = this.store.getOperations().filter((o) => o.active);
+    if (!this.isReplaying || this.replayIndex >= activeOps.length) {
+      this.pauseReplay();
+      return;
+    }
+
+    this.replayIndex++;
+    this.triggerRedraw();
+    this.updateReplayBar();
+
+    const interval = Math.max(50, 400 / this.replaySpeed);
+    this.replayTimer = window.setTimeout(() => this.stepReplay(), interval);
+  }
+
+  private pauseReplay(): void {
+    this.isReplaying = false;
+    if (this.replayTimer !== null) {
+      clearTimeout(this.replayTimer);
+      this.replayTimer = null;
+    }
+    this.replayBar.setPlayingState(false);
+  }
+
+  private scrubReplay(index: number): void {
+    this.pauseReplay();
+    this.isReplaying = true;
+    this.replayIndex = index;
+    this.triggerRedraw();
+    this.updateReplayBar();
+  }
+
+  private updateReplayBar(): void {
+    const activeOps = this.store.getOperations().filter((o) => o.active);
+    if (!this.isReplaying) {
+      this.replayIndex = activeOps.length;
+    }
+    this.replayBar.updateRange(activeOps.length, this.replayIndex);
   }
 
   private updateRoomBadge(roomId: string): void {

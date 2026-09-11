@@ -1,6 +1,6 @@
 /**
  * Shared TypeScript protocol definitions for Collaborative Drawing Canvas.
- * Extended with advanced vector tools, camera transformations, shape ghosting, and selection.
+ * Elevated with multi-layer support, grid snapping, real-time object transformation, and time-lapse replay.
  */
 
 export type DrawingTool =
@@ -20,6 +20,13 @@ export interface Point {
   y: number;
 }
 
+export interface CanvasLayer {
+  id: string;
+  name: string;
+  visible: boolean;
+  locked: boolean;
+}
+
 export interface DrawingOperation {
   /** Unique client-generated UUID for the stroke */
   id: string;
@@ -37,6 +44,8 @@ export interface DrawingOperation {
   points: Point[];
   /** Optional text content for text annotations */
   text?: string;
+  /** Target layer ID */
+  layerId?: string;
   /** Active status flag for global tombstone undo/redo support */
   active: boolean;
 }
@@ -62,6 +71,7 @@ export interface StrokeStartPayload {
   width: number;
   point: Point;
   text?: string;
+  layerId?: string;
 }
 
 export interface StrokeStartBroadcastPayload extends StrokeStartPayload {
@@ -83,19 +93,6 @@ export interface StrokeEndPayload {
 }
 
 export interface StrokeEndBroadcastPayload extends StrokeEndPayload {
-  userId: string;
-}
-
-export interface StrokePreviewPayload {
-  operationId: string;
-  tool: DrawingTool;
-  color: string;
-  width: number;
-  points: Point[];
-  text?: string;
-}
-
-export interface StrokePreviewBroadcastPayload extends StrokePreviewPayload {
   userId: string;
 }
 
@@ -122,6 +119,7 @@ export interface RoomStatePayload {
   roomId: string;
   users: UserPresence[];
   operations: DrawingOperation[];
+  layers?: CanvasLayer[];
   myUser: UserPresence;
 }
 

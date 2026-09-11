@@ -9,6 +9,8 @@ export interface ToolbarCallbacks {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomReset: () => void;
+  onToggleGrid: () => void;
+  onToggleSnap: () => void;
   onExportPNG: () => void;
   onExportSVG: () => void;
 }
@@ -30,13 +32,14 @@ export class Toolbar {
   private btnZoomIn: HTMLButtonElement;
   private btnZoomOut: HTMLButtonElement;
   private btnZoomReset: HTMLButtonElement;
+  private btnGridToggle: HTMLButtonElement;
+  private btnSnapToggle: HTMLButtonElement;
   private btnExportPNG: HTMLButtonElement;
   private btnExportSVG: HTMLButtonElement;
 
   constructor(callbacks: ToolbarCallbacks) {
     this.callbacks = callbacks;
 
-    // Bind Tool Buttons
     const toolIds: { tool: DrawingTool; id: string }[] = [
       { tool: 'brush', id: 'btn-brush' },
       { tool: 'eraser', id: 'btn-eraser' },
@@ -62,6 +65,8 @@ export class Toolbar {
     this.btnZoomIn = document.getElementById('btn-zoom-in') as HTMLButtonElement;
     this.btnZoomOut = document.getElementById('btn-zoom-out') as HTMLButtonElement;
     this.btnZoomReset = document.getElementById('btn-zoom-reset') as HTMLButtonElement;
+    this.btnGridToggle = document.getElementById('btn-grid-toggle') as HTMLButtonElement;
+    this.btnSnapToggle = document.getElementById('btn-snap-toggle') as HTMLButtonElement;
     this.btnExportPNG = document.getElementById('btn-export-png') as HTMLButtonElement;
     this.btnExportSVG = document.getElementById('btn-export-svg') as HTMLButtonElement;
 
@@ -82,12 +87,10 @@ export class Toolbar {
   }
 
   private initEventListeners(): void {
-    // Tool buttons
     this.toolButtons.forEach((btn, tool) => {
       btn.addEventListener('click', () => this.setTool(tool));
     });
 
-    // Color Swatches
     this.colorSwatches.forEach((swatch) => {
       swatch.addEventListener('click', () => {
         const color = swatch.getAttribute('data-color');
@@ -95,29 +98,30 @@ export class Toolbar {
       });
     });
 
-    // Custom Color Picker
     this.colorPicker.addEventListener('input', (e) => {
       const target = e.target as HTMLInputElement;
       this.setColor(target.value);
     });
 
-    // Width Slider
     this.widthSlider.addEventListener('input', (e) => {
       const target = e.target as HTMLInputElement;
       const val = parseInt(target.value, 10);
       this.setWidth(val);
     });
 
-    // Undo / Redo buttons
     this.btnUndo.addEventListener('click', () => this.callbacks.onUndo());
     this.btnRedo.addEventListener('click', () => this.callbacks.onRedo());
 
-    // Zoom Buttons
     this.btnZoomIn.addEventListener('click', () => this.callbacks.onZoomIn());
     this.btnZoomOut.addEventListener('click', () => this.callbacks.onZoomOut());
     this.btnZoomReset.addEventListener('click', () => this.callbacks.onZoomReset());
 
-    // Export Buttons
+    this.btnGridToggle.addEventListener('click', () => this.callbacks.onToggleGrid());
+    this.btnSnapToggle.addEventListener('click', () => {
+      this.callbacks.onToggleSnap();
+      this.btnSnapToggle.classList.toggle('active');
+    });
+
     this.btnExportPNG.addEventListener('click', () => this.callbacks.onExportPNG());
     this.btnExportSVG.addEventListener('click', () => this.callbacks.onExportSVG());
   }

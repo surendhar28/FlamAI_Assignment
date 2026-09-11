@@ -1,5 +1,7 @@
 import { Point } from '../../../shared/protocol';
 
+export type GridMode = 'none' | 'dots' | 'grid';
+
 export class CanvasManager {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -12,6 +14,11 @@ export class CanvasManager {
   private zoom: number = 1.0;
   private panX: number = 0;
   private panY: number = 0;
+
+  // Smart Grid & Snapping State
+  private gridMode: GridMode = 'dots';
+  private snapToGrid: boolean = true;
+  private readonly GRID_SIZE: number = 20; // 20px grid step
 
   private onResizeCallback?: () => void;
 
@@ -52,6 +59,29 @@ export class CanvasManager {
     return this.height;
   }
 
+  // --- Grid & Snapping API ---
+
+  public getGridMode(): GridMode {
+    return this.gridMode;
+  }
+
+  public toggleGridMode(): GridMode {
+    const modes: GridMode[] = ['dots', 'grid', 'none'];
+    const nextIndex = (modes.indexOf(this.gridMode) + 1) % modes.length;
+    this.gridMode = modes[nextIndex];
+    if (this.onResizeCallback) this.onResizeCallback();
+    return this.gridMode;
+  }
+
+  public isSnapToGrid(): boolean {
+    return this.snapToGrid;
+  }
+
+  public toggleSnapToGrid(): boolean {
+    this.snapToGrid = !this.snapToGrid;
+    return this.snapToGrid;
+  }
+
   // --- Camera Viewport Transforms ---
 
   public getZoom(): number {
@@ -68,7 +98,6 @@ export class CanvasManager {
 
     const center = centerPx || { x: this.width / 2, y: this.height / 2 };
 
-    // Zoom anchored around specified viewport center point
     const worldBefore = this.screenToWorldPx(center.x, center.y);
     this.zoom = clampedZoom;
     const screenAfter = this.worldPxToScreen(worldBefore.x, worldBefore.y);
@@ -77,18 +106,14 @@ export class CanvasManager {
     this.panY += center.y - screenAfter.y;
 
     this.applyTransform();
-    if (this.onResizeCallback) {
-      this.onResizeCallback();
-    }
+    if (this.onResizeCallback) this.onResizeCallback();
   }
 
   public setPan(deltaX: number, deltaY: number): void {
     this.panX += deltaX;
     this.panY += deltaY;
     this.applyTransform();
-    if (this.onResizeCallback) {
-      this.onResizeCallback();
-    }
+    if (this.onResizeCallback) this.onResizeCallback();
   }
 
   public resetCamera(): void {
@@ -96,9 +121,7 @@ export class CanvasManager {
     this.panX = 0;
     this.panY = 0;
     this.applyTransform();
-    if (this.onResizeCallback) {
-      this.onResizeCallback();
-    }
+    if (this.onResizeCallback) this.onResizeCallback();
   }
 
   public applyTransform(): void {
@@ -119,41 +142,33 @@ export class CanvasManager {
 
     this.applyTransform();
 
-    if (this.onResizeCallback) {
-      this.onResizeCallback();
-    }
+    if (this.onResizeCallback) this.onResizeCallback();
   }
 
   private initResizeObserver(): void {
-    const resizeObserver = new ResizeObserver(() => {
-      this.updateDimensions();
-    });
+    const resizeObserver = new ResizeObserver(() => this.updateDimensions());
     resizeObserver.observe(this.container);
-
-    window.addEventListener('resize', () => {
-      this.updateDimensions();
-    });
+    window.addEventListener('resize', () => this.updateDimensions());
   }
 
-  // --- Coordinate Transformations (Screen <-> Normalized World) ---
+  // --- Coordinate Transformations & Snapping ---
 
-  /**
-   * Converts raw mouse client coordinates into World Pixel Space (incorporating Pan & Zoom).
-   */
   public screenToWorldPx(clientX: number, clientY: number): { x: number; y: number } {
     const rect = this.canvas.getBoundingClientRect();
     const screenX = clientX - rect.left;
     const screenY = clientY - rect.top;
 
-    return {
-      x: (screenX - this.panX) / this.zoom,
-      y: (screenY - this.panY) / this.zoom,
-    };
+    let worldX = (screenX - this.panX) / this.zoom;
+    let worldY = (screenY - this.panY) / this.zoom;
+
+    if (this.snapToGrid) {
+      worldX = Math.round(worldX / this.GRID_SIZE) * this.GRID_SIZE;
+      worldY = Math.round(worldY / this.GRID_SIZE) * this.GRID_SIZE;
+    }
+
+    return { x: worldX, y: worldY };
   }
 
-  /**
-   * Converts World Pixel Space back into Viewport Screen Pixels.
-   */
   public worldPxToScreen(worldX: number, worldY: number): { x: number; y: number } {
     return {
       x: worldX * this.zoom + this.panX,
@@ -161,10 +176,6 @@ export class CanvasManager {
     };
   }
 
-  /**
-   * Converts raw pointer client coordinates into normalized floating point coordinates (0.0 to 1.0)
-   * in World Space.
-   */
   public normalizeCoordinates(clientX: number, clientY: number): Point {
     const worldPx = this.screenToWorldPx(clientX, clientY);
     return {
@@ -173,9 +184,6 @@ export class CanvasManager {
     };
   }
 
-  /**
-   * Converts normalized World coordinates (0.0 to 1.0) back to World Pixel coordinates.
-   */
   public denormalizeCoordinates(point: Point): { x: number; y: number } {
     return {
       x: point.x * this.width,
@@ -183,13 +191,58 @@ export class CanvasManager {
     };
   }
 
+  public setResizeCallback(callback: () => void): void {
+    this.onResizeCallback = callback;
+  }
+
   /**
-   * Clears the entire canvas viewport accounting for camera transforms.
+   * Clears the viewport and renders background smart grid.
    */
   public clear(): void {
     this.ctx.save();
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.restore();
+
+    this.renderBackgroundGrid();
+  }
+
+  private renderBackgroundGrid(): void {
+    if (this.gridMode === 'none') return;
+
+    this.ctx.save();
+    const step = this.GRID_SIZE;
+    const startX = Math.floor(-this.panX / (this.zoom * step)) * step - step;
+    const endX = startX + (this.width / this.zoom) + step * 2;
+    const startY = Math.floor(-this.panY / (this.zoom * step)) * step - step;
+    const endY = startY + (this.height / this.zoom) + step * 2;
+
+    this.ctx.strokeStyle = '#E2E8F0';
+    this.ctx.fillStyle = '#CBD5E1';
+    this.ctx.lineWidth = 0.5 / this.zoom;
+
+    if (this.gridMode === 'dots') {
+      const dotRadius = 1.2 / this.zoom;
+      for (let x = startX; x < endX; x += step) {
+        for (let y = startY; y < endY; y += step) {
+          this.ctx.beginPath();
+          this.ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
+          this.ctx.fill();
+        }
+      }
+    } else if (this.gridMode === 'grid') {
+      this.ctx.beginPath();
+      for (let x = startX; x < endX; x += step) {
+        this.ctx.moveTo(x, startY);
+        this.ctx.lineTo(x, endY);
+      }
+      for (let y = startY; y < endY; y += step) {
+        this.ctx.moveTo(startX, y);
+        this.ctx.lineTo(endX, y);
+      }
+      this.ctx.stroke();
+    }
+
     this.ctx.restore();
   }
 }

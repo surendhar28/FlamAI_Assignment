@@ -3,7 +3,7 @@ import { DrawingTool, Point } from '../../../shared/protocol';
 
 export interface InputHandlerCallbacks {
   onStrokeStart: (point: Point) => void;
-  onStrokeMove: (point: Point, prevPoint: Point) => void;
+  onStrokeMove: (point: Point, prevPoint: Point, shiftKey: boolean) => void;
   onStrokeEnd: () => void;
   onCursorMove: (point: Point) => void;
   onPan: (deltaX: number, deltaY: number) => void;
@@ -51,7 +51,6 @@ export class InputHandler {
     const isPanTool = currentTool === 'pan';
 
     if (isMiddleClick || isPanTool || e.spaceKey) {
-      // Pan mode
       this.isPanning = true;
       this.lastScreenPx = { x: e.clientX, y: e.clientY };
       const canvas = this.canvasManager.getCanvas();
@@ -97,7 +96,7 @@ export class InputHandler {
 
     if (!this.isDrawing || !this.lastPoint) return;
 
-    this.callbacks.onStrokeMove(normPoint, this.lastPoint);
+    this.callbacks.onStrokeMove(normPoint, this.lastPoint, e.shiftKey);
     this.lastPoint = normPoint;
   };
 
