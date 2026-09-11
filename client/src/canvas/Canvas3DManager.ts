@@ -46,7 +46,6 @@ export class Canvas3DManager {
     // 2. Initialize Camera
     const aspect = containerEl.clientWidth / containerEl.clientHeight;
     this.camera = new THREE.PerspectiveCamera(50, aspect, 0.1, 1000);
-    this.updateCameraPosition();
 
     // 3. Initialize WebGL Renderer
     this.renderer = new THREE.WebGLRenderer({
@@ -81,6 +80,7 @@ export class Canvas3DManager {
 
     this.initResizeObserver();
     this.initNavigationListeners();
+    this.updateCameraPosition();
   }
 
   public getScene(): THREE.Scene {
@@ -220,6 +220,8 @@ export class Canvas3DManager {
   }
 
   public render(): void {
-    this.renderer.render(this.scene, this.camera);
+    if (this.renderer) {
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 }
