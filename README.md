@@ -1,42 +1,39 @@
-# Real-Time Collaborative Canvas Engine (Elevated Edition)
+# Real-Time Collaborative 3D Spatial Canvas Engine
 
-An enterprise-grade, multi-user collaborative drawing platform built with **Vanilla TypeScript**, **HTML5 Canvas 2D API**, **Node.js**, and **Socket.IO**. Features vector shapes, infinite pan/zoom camera matrix, smart grid snapping, multi-layer management, real-time object selection/dragging, live time-lapse drawing replay, and native PNG/SVG export capabilities.
+An enterprise-grade, multi-user **Real-Time 3D Spatial Canvas & 3D Modeling Studio** built with **TypeScript**, **Three.js WebGL 3D API**, **Node.js**, and **Socket.IO**. Features 3D freehand ribbon drawing, 3D mesh primitives (cubes, spheres, cylinders), 3D perspective camera navigation, 3D raycasting, real-time spatial user presence cursors, and Wavefront `.obj` 3D model export capabilities.
 
 ---
 
-## 🔥 Elevated Features Breakdown
+## 🧊 3D Spatial Capabilities Breakdown
 
-- **Manual Canvas 2D Engine:** Custom rendering pipeline using smooth quadratic bezier curves, high-DPI (`devicePixelRatio`) scaling, and `destination-out` erasing.
-- **Extended Vector Shape Suite:**
-  - 🖌️ **Brush & Eraser:** Smooth freehand drawing with quadratic interpolation.
-  - 📏 **Line:** Straight vector lines with optional 45° Shift angle locking.
-  - ⬛ **Rectangle:** Stroked bounding boxes with Shift-key square constraining.
-  - ⭕ **Ellipse:** Oval geometry with Shift-key perfect circle constraining.
-  - 🔤 **Text Annotation:** Direct text vector placement.
-  - 🎯 **Select & Move Tool:** Click to select shapes, show bounding handles, and drag-to-move vectors across the canvas.
-- **Smart Grid & Snapping System:**
-  - Toggleable **Dots**, **Grid Mesh**, or **None** background patterns.
-  - 🧲 **Snap-to-Grid:** Automatic 20px grid step alignment for precise engineering diagrams.
-- **Multi-Layer Management System (Layers Panel):**
-  - Create custom canvas layers (`Layer 1`, `Layer 2`, etc.).
-  - Toggle layer visibility (👁️ Hide/Show) and lock protection (🔒 Lock/Unlock).
-- **Live Time-Lapse Replay Engine:**
-  - Interactive playback control bar: `▶️ Play`, `⏸️ Pause`, Timeline Scrubbing Slider (`0` to `N` operations), and Speed multiplier (`1x`, `2x`, `4x`).
-  - Replays the drawing construction step-by-step from initial operation sequence.
-- **Infinite Canvas Pan & Zoom (Camera Matrix):**
-  - Smooth camera panning (`Space + Drag` or `Middle Click`).
-  - Mouse wheel zoom (`Ctrl + Wheel` / Pinch) anchored around pointer center (0.2x to 5.0x zoom).
-- **Normalized World Coordinates:** Converts screen pixels to relative float scale ($x, y \in [0, 1]$), ensuring 100% pixel-perfect synchronization across different screen resolutions and zoom levels.
-- **Server-Authoritative Tombstone Undo / Redo:** Synchronized undo/redo operating on the shared room operation history via logical deletion (`active: false`).
-- **Canvas Exporter Engine:** Export canvas as high-resolution **PNG** or scalable **Vector SVG** XML files.
+- **Three.js WebGL 3D Engine:** High-performance WebGL 3D viewport featuring perspective camera, directional lighting, shadows, 3D grid helper, and axis orientation.
+- **3D Spatial Tool Suite:**
+  - 🖌️ **3D Ribbon Brush:** Freehand 3D spatial curves drawn using Catmull-Rom tube geometries (`THREE.TubeGeometry`).
+  - 🧹 **3D Eraser:** Removes target 3D meshes in spatial world space.
+  - 🧊 **3D Box / Cube:** Interactive 3D cuboid mesh primitives (`THREE.BoxGeometry`).
+  - 🔮 **3D Sphere:** High-resolution 3D spatial spheres (`THREE.SphereGeometry`).
+  - 🛢️ **3D Cylinder:** 3D cylindrical geometries (`THREE.CylinderGeometry`).
+  - 📏 **3D Straight Line:** 3D vector lines in spatial world.
+  - 🔤 **3D Text Annotation:** Floating 3D spatial text label sprites.
+  - 🎯 **3D Select Tool:** Click 3D objects to display interactive 3D bounding box helpers (`THREE.BoxHelper`).
+- **3D Camera Navigation & View Angle Presets:**
+  - 🎲 **Isometric View:** Preset $45^\circ$ spatial perspective.
+  - ⬆️ **Top View:** Overhead 2D-style projection.
+  - 👁️ **Front View:** Eye-level 3D perspective.
+  - ➡️ **Side View:** Orthogonal side projection.
+  - 🌐 **3D Orbit & Pan:** Drag with **Right Click** or select **Orbit** to rotate camera in 3D space; mouse wheel to zoom in/out ($5 \dots 100$ radius units).
+- **3D Raycasting Engine:** Converts 2D screen pointer mouse events ($clientX, clientY$) into 3D World Spatial Coordinates $(X, Y, Z)$ by intersecting 3D planes using `THREE.Raycaster`.
+- **3D Real-Time User Presence:** Peer cursors rendered as 3D spatial pointer cones with floating 3D text tags tracking live peer movements in 3D WebGL space.
+- **Server-Authoritative Tombstone Undo / Redo:** Synchronized global undo/redo operating on the shared room operation history via logical deletion (`active: false`).
+- **3D Model Export Engine:** Export spatial drawings directly into native **Wavefront OBJ 3D Model files (`.obj`)** for editing in Blender, Maya, or Unreal Engine, or capture 3D PNG snapshots!
 
 ---
 
 ## Tech Stack
 
-- **Frontend:** TypeScript, HTML5 Canvas 2D API, Vanilla DOM APIs, CSS3 Tokens, Vite.
+- **Frontend:** TypeScript, Three.js WebGL 3D API, HTML5 Canvas, Vite.
 - **Backend:** Node.js, Express, Socket.IO, TypeScript.
-- **Architecture:** Operation-Based Vector State Synchronization + 2D Camera Matrix.
+- **Architecture:** Operation-Based 3D Vector & Mesh Synchronization.
 
 ---
 
@@ -69,15 +66,14 @@ npm start
 
 | Key / Control | Tool / Action |
 | :--- | :--- |
-| `B` | Brush Tool |
+| `B` | 3D Freehand Ribbon Tool |
 | `E` | Eraser Tool |
-| `L` | Straight Line Tool (Hold `Shift` for 45° Snap) |
-| `R` | Rectangle Tool (Hold `Shift` for Square) |
-| `O` | Ellipse Tool (Hold `Shift` for Circle) |
-| `T` | Text Annotation Tool |
-| `S` | Select Tool (Click & Drag Objects) |
-| `P` / `Space + Drag` | Pan Canvas Viewport |
-| `Shift + Drag` | Constrain Aspect Ratio / Snap Angles |
-| `Ctrl + Wheel` / `+` / `-` | Zoom In / Out |
+| `X` | 3D Box / Cube Primitive |
+| `S` | 3D Sphere Primitive |
+| `C` | 3D Cylinder Primitive |
+| `L` | 3D Straight Line |
+| `T` | 3D Text Annotation Tool |
+| `O` / `Right Click Drag` | Orbit / Rotate 3D Camera |
+| `Mouse Wheel` | 3D Camera Zoom (Dolly In/Out) |
 | `Ctrl + Z` / `Cmd + Z` | Global Undo |
 | `Ctrl + Y` / `Ctrl + Shift + Z` | Global Redo |
