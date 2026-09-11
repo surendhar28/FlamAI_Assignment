@@ -7,6 +7,12 @@ export class CanvasManager {
   private dpr: number = 1;
   private width: number = 0;
   private height: number = 0;
+
+  // Camera Transformation Matrix State
+  private zoom: number = 1.0;
+  private panX: number = 0;
+  private panY: number = 0;
+
   private onResizeCallback?: () => void;
 
   constructor(canvasId: string, containerId: string) {
@@ -46,26 +52,72 @@ export class CanvasManager {
     return this.height;
   }
 
-  public setResizeCallback(callback: () => void): void {
-    this.onResizeCallback = callback;
+  // --- Camera Viewport Transforms ---
+
+  public getZoom(): number {
+    return this.zoom;
   }
 
-  /**
-   * Updates internal canvas dimensions accounting for high-DPI (Retina) displays.
-   */
+  public getPan(): { panX: number; panY: number } {
+    return { panX: this.panX, panY: this.panY };
+  }
+
+  public setZoom(newZoom: number, centerPx?: { x: number; y: number }): void {
+    const clampedZoom = Math.max(0.2, Math.min(5.0, newZoom));
+    if (clampedZoom === this.zoom) return;
+
+    const center = centerPx || { x: this.width / 2, y: this.height / 2 };
+
+    // Zoom anchored around specified viewport center point
+    const worldBefore = this.screenToWorldPx(center.x, center.y);
+    this.zoom = clampedZoom;
+    const screenAfter = this.worldPxToScreen(worldBefore.x, worldBefore.y);
+
+    this.panX += center.x - screenAfter.x;
+    this.panY += center.y - screenAfter.y;
+
+    this.applyTransform();
+    if (this.onResizeCallback) {
+      this.onResizeCallback();
+    }
+  }
+
+  public setPan(deltaX: number, deltaY: number): void {
+    this.panX += deltaX;
+    this.panY += deltaY;
+    this.applyTransform();
+    if (this.onResizeCallback) {
+      this.onResizeCallback();
+    }
+  }
+
+  public resetCamera(): void {
+    this.zoom = 1.0;
+    this.panX = 0;
+    this.panY = 0;
+    this.applyTransform();
+    if (this.onResizeCallback) {
+      this.onResizeCallback();
+    }
+  }
+
+  public applyTransform(): void {
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.scale(this.dpr, this.dpr);
+    this.ctx.translate(this.panX, this.panY);
+    this.ctx.scale(this.zoom, this.zoom);
+  }
+
   private updateDimensions(): void {
     const rect = this.container.getBoundingClientRect();
     this.width = rect.width;
     this.height = rect.height;
     this.dpr = window.devicePixelRatio || 1;
 
-    // Set actual canvas pixel resolution
     this.canvas.width = Math.floor(this.width * this.dpr);
     this.canvas.height = Math.floor(this.height * this.dpr);
 
-    // Reset transformations and scale context for Retina crispness
-    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-    this.ctx.scale(this.dpr, this.dpr);
+    this.applyTransform();
 
     if (this.onResizeCallback) {
       this.onResizeCallback();
@@ -83,24 +135,46 @@ export class CanvasManager {
     });
   }
 
+  // --- Coordinate Transformations (Screen <-> Normalized World) ---
+
   /**
-   * Converts raw pointer event coordinates (relative to canvas container)
-   * into normalized floating point coordinates (0.0 to 1.0).
+   * Converts raw mouse client coordinates into World Pixel Space (incorporating Pan & Zoom).
    */
-  public normalizeCoordinates(clientX: number, clientY: number): Point {
+  public screenToWorldPx(clientX: number, clientY: number): { x: number; y: number } {
     const rect = this.canvas.getBoundingClientRect();
-    const px = clientX - rect.left;
-    const py = clientY - rect.top;
+    const screenX = clientX - rect.left;
+    const screenY = clientY - rect.top;
 
     return {
-      x: this.width > 0 ? Math.max(0, Math.min(1, px / this.width)) : 0,
-      y: this.height > 0 ? Math.max(0, Math.min(1, py / this.height)) : 0,
+      x: (screenX - this.panX) / this.zoom,
+      y: (screenY - this.panY) / this.zoom,
     };
   }
 
   /**
-   * Converts normalized floating point coordinates (0.0 to 1.0)
-   * back to pixel coordinates on the current canvas container.
+   * Converts World Pixel Space back into Viewport Screen Pixels.
+   */
+  public worldPxToScreen(worldX: number, worldY: number): { x: number; y: number } {
+    return {
+      x: worldX * this.zoom + this.panX,
+      y: worldY * this.zoom + this.panY,
+    };
+  }
+
+  /**
+   * Converts raw pointer client coordinates into normalized floating point coordinates (0.0 to 1.0)
+   * in World Space.
+   */
+  public normalizeCoordinates(clientX: number, clientY: number): Point {
+    const worldPx = this.screenToWorldPx(clientX, clientY);
+    return {
+      x: this.width > 0 ? worldPx.x / this.width : 0,
+      y: this.height > 0 ? worldPx.y / this.height : 0,
+    };
+  }
+
+  /**
+   * Converts normalized World coordinates (0.0 to 1.0) back to World Pixel coordinates.
    */
   public denormalizeCoordinates(point: Point): { x: number; y: number } {
     return {
@@ -110,9 +184,12 @@ export class CanvasManager {
   }
 
   /**
-   * Clears the entire canvas viewport cleanly.
+   * Clears the entire canvas viewport accounting for camera transforms.
    */
   public clear(): void {
-    this.ctx.clearRect(0, 0, this.width, this.height);
+    this.ctx.save();
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.restore();
   }
 }

@@ -23,7 +23,17 @@ export class SchemaValidator {
    * Validates tool type.
    */
   public static isValidTool(tool: any): tool is DrawingTool {
-    return tool === 'brush' || tool === 'eraser';
+    const validTools: DrawingTool[] = [
+      'brush',
+      'eraser',
+      'line',
+      'rectangle',
+      'ellipse',
+      'text',
+      'select',
+      'pan',
+    ];
+    return validTools.includes(tool);
   }
 
   /**

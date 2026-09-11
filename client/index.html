@@ -20,11 +20,11 @@
       </div>
 
       <div class="header-right">
-        <!-- Debug Performance Stats -->
+        <!-- Debug Performance & Camera Stats -->
         <div class="stats-panel" id="stats-panel">
           <span class="stat-item">FPS: <strong id="stat-fps">60</strong></span>
           <span class="stat-item">Ops: <strong id="stat-ops">0</strong></span>
-          <span class="stat-item">Latency: <strong id="stat-latency">--</strong>ms</span>
+          <span class="stat-item">Zoom: <strong id="stat-zoom">100%</strong></span>
         </div>
 
         <!-- Connection Status Indicator -->
@@ -40,13 +40,58 @@
       <!-- Toolbar -->
       <aside class="toolbar-panel" id="toolbar">
         <div class="tool-section">
-          <label class="section-title">Tools</label>
-          <div class="btn-group">
+          <label class="section-title">Draw Tools</label>
+          <div class="btn-grid">
             <button id="btn-brush" class="tool-btn active" title="Brush (B)">
               🖌️ Brush
             </button>
             <button id="btn-eraser" class="tool-btn" title="Eraser (E)">
               🧹 Eraser
+            </button>
+          </div>
+        </div>
+
+        <div class="tool-section">
+          <label class="section-title">Shape Tools</label>
+          <div class="btn-grid">
+            <button id="btn-line" class="tool-btn" title="Straight Line (L)">
+              📏 Line
+            </button>
+            <button id="btn-rect" class="tool-btn" title="Rectangle (R)">
+              ⬛ Rect
+            </button>
+            <button id="btn-ellipse" class="tool-btn" title="Ellipse (O)">
+              ⭕ Ellipse
+            </button>
+            <button id="btn-text" class="tool-btn" title="Text Annotation (T)">
+              🔤 Text
+            </button>
+          </div>
+        </div>
+
+        <div class="tool-section">
+          <label class="section-title">Navigation & Selection</label>
+          <div class="btn-grid">
+            <button id="btn-select" class="tool-btn" title="Select & Move Shapes (S)">
+              🎯 Select
+            </button>
+            <button id="btn-pan" class="tool-btn" title="Pan Canvas (Space / P)">
+              🖐️ Pan
+            </button>
+          </div>
+        </div>
+
+        <div class="tool-section">
+          <label class="section-title">Camera Zoom</label>
+          <div class="btn-group">
+            <button id="btn-zoom-out" class="action-btn" title="Zoom Out (-)">
+              ➖
+            </button>
+            <button id="btn-zoom-reset" class="action-btn" title="Reset Zoom (100%)">
+              100%
+            </button>
+            <button id="btn-zoom-in" class="action-btn" title="Zoom In (+)">
+              ➕
             </button>
           </div>
         </div>
@@ -80,6 +125,18 @@
             </button>
             <button id="btn-redo" class="action-btn" title="Global Redo (Ctrl+Y)">
               ↪️ Redo
+            </button>
+          </div>
+        </div>
+
+        <div class="tool-section">
+          <label class="section-title">Export Canvas</label>
+          <div class="btn-group">
+            <button id="btn-export-png" class="action-btn" title="Export as High-Res PNG">
+              🖼️ PNG
+            </button>
+            <button id="btn-export-svg" class="action-btn" title="Export as Vector SVG">
+              📄 SVG
             </button>
           </div>
         </div>

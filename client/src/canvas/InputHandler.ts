@@ -1,21 +1,35 @@
 import { CanvasManager } from './CanvasManager';
-import { Point } from '../../../shared/protocol';
+import { DrawingTool, Point } from '../../../shared/protocol';
 
 export interface InputHandlerCallbacks {
   onStrokeStart: (point: Point) => void;
   onStrokeMove: (point: Point, prevPoint: Point) => void;
   onStrokeEnd: () => void;
   onCursorMove: (point: Point) => void;
+  onPan: (deltaX: number, deltaY: number) => void;
+  onZoom: (deltaZoom: number, centerPx: { x: number; y: number }) => void;
+  onTextPrompt: (point: Point) => void;
+  onSelectClick: (point: Point) => void;
 }
 
 export class InputHandler {
   private canvasManager: CanvasManager;
   private callbacks: InputHandlerCallbacks;
-  private isDrawing: boolean = false;
-  private lastPoint: Point | null = null;
 
-  constructor(canvasManager: CanvasManager, callbacks: InputHandlerCallbacks) {
+  private isDrawing: boolean = false;
+  private isPanning: boolean = false;
+  private activeToolGetter: () => DrawingTool = () => 'brush';
+
+  private lastPoint: Point | null = null;
+  private lastScreenPx: { x: number; y: number } | null = null;
+
+  constructor(
+    canvasManager: CanvasManager,
+    activeToolGetter: () => DrawingTool,
+    callbacks: InputHandlerCallbacks
+  ) {
     this.canvasManager = canvasManager;
+    this.activeToolGetter = activeToolGetter;
     this.callbacks = callbacks;
 
     this.attachEventListeners();
@@ -28,12 +42,36 @@ export class InputHandler {
     canvas.addEventListener('pointermove', this.handlePointerMove);
     canvas.addEventListener('pointerup', this.handlePointerUp);
     canvas.addEventListener('pointercancel', this.handlePointerUp);
-    canvas.addEventListener('pointerleave', this.handlePointerLeave);
+    canvas.addEventListener('wheel', this.handleWheel, { passive: false });
   }
 
   private handlePointerDown = (e: PointerEvent): void => {
-    // Only respond to primary mouse click / touch contact
+    const currentTool = this.activeToolGetter();
+    const isMiddleClick = e.button === 1;
+    const isPanTool = currentTool === 'pan';
+
+    if (isMiddleClick || isPanTool || e.spaceKey) {
+      // Pan mode
+      this.isPanning = true;
+      this.lastScreenPx = { x: e.clientX, y: e.clientY };
+      const canvas = this.canvasManager.getCanvas();
+      canvas.setPointerCapture(e.pointerId);
+      return;
+    }
+
     if (e.button !== 0 && e.pointerType === 'mouse') return;
+
+    if (currentTool === 'select') {
+      const normPoint = this.canvasManager.normalizeCoordinates(e.clientX, e.clientY);
+      this.callbacks.onSelectClick(normPoint);
+      return;
+    }
+
+    if (currentTool === 'text') {
+      const normPoint = this.canvasManager.normalizeCoordinates(e.clientX, e.clientY);
+      this.callbacks.onTextPrompt(normPoint);
+      return;
+    }
 
     const canvas = this.canvasManager.getCanvas();
     canvas.setPointerCapture(e.pointerId);
@@ -46,37 +84,49 @@ export class InputHandler {
   };
 
   private handlePointerMove = (e: PointerEvent): void => {
-    const normPoint = this.canvasManager.normalizeCoordinates(e.clientX, e.clientY);
+    if (this.isPanning && this.lastScreenPx) {
+      const dx = e.clientX - this.lastScreenPx.x;
+      const dy = e.clientY - this.lastScreenPx.y;
+      this.lastScreenPx = { x: e.clientX, y: e.clientY };
+      this.callbacks.onPan(dx, dy);
+      return;
+    }
 
-    // Always trigger cursor presence update callback
+    const normPoint = this.canvasManager.normalizeCoordinates(e.clientX, e.clientY);
     this.callbacks.onCursorMove(normPoint);
 
     if (!this.isDrawing || !this.lastPoint) return;
 
-    // Trigger stroke move callback with current and previous points
     this.callbacks.onStrokeMove(normPoint, this.lastPoint);
     this.lastPoint = normPoint;
   };
 
   private handlePointerUp = (e: PointerEvent): void => {
-    if (!this.isDrawing) return;
-
-    this.isDrawing = false;
-    this.lastPoint = null;
-
     const canvas = this.canvasManager.getCanvas();
     if (canvas.hasPointerCapture(e.pointerId)) {
       canvas.releasePointerCapture(e.pointerId);
     }
 
+    if (this.isPanning) {
+      this.isPanning = false;
+      this.lastScreenPx = null;
+      return;
+    }
+
+    if (!this.isDrawing) return;
+
+    this.isDrawing = false;
+    this.lastPoint = null;
     this.callbacks.onStrokeEnd();
   };
 
-  private handlePointerLeave = (e: PointerEvent): void => {
-    // Pointer capture handles active drags out of window; pointerleave handles non-dragging cursor exit
-    if (!this.isDrawing) {
-      // Could notify cursor left if needed
-    }
+  private handleWheel = (e: WheelEvent): void => {
+    e.preventDefault();
+    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+    const rect = this.canvasManager.getCanvas().getBoundingClientRect();
+    const center = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+
+    this.callbacks.onZoom(zoomFactor, center);
   };
 
   public destroy(): void {
@@ -85,6 +135,6 @@ export class InputHandler {
     canvas.removeEventListener('pointermove', this.handlePointerMove);
     canvas.removeEventListener('pointerup', this.handlePointerUp);
     canvas.removeEventListener('pointercancel', this.handlePointerUp);
-    canvas.removeEventListener('pointerleave', this.handlePointerLeave);
+    canvas.removeEventListener('wheel', this.handleWheel);
   }
 }

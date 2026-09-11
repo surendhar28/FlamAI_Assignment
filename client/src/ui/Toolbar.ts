@@ -6,6 +6,11 @@ export interface ToolbarCallbacks {
   onWidthChange: (width: number) => void;
   onUndo: () => void;
   onRedo: () => void;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onZoomReset: () => void;
+  onExportPNG: () => void;
+  onExportSVG: () => void;
 }
 
 export class Toolbar {
@@ -15,26 +20,50 @@ export class Toolbar {
   private currentWidth: number = 5;
 
   // DOM Elements
-  private btnBrush: HTMLButtonElement;
-  private btnEraser: HTMLButtonElement;
+  private toolButtons: Map<DrawingTool, HTMLButtonElement> = new Map();
   private colorSwatches: NodeListOf<HTMLButtonElement>;
   private colorPicker: HTMLInputElement;
   private widthSlider: HTMLInputElement;
   private widthValueText: HTMLElement;
   private btnUndo: HTMLButtonElement;
   private btnRedo: HTMLButtonElement;
+  private btnZoomIn: HTMLButtonElement;
+  private btnZoomOut: HTMLButtonElement;
+  private btnZoomReset: HTMLButtonElement;
+  private btnExportPNG: HTMLButtonElement;
+  private btnExportSVG: HTMLButtonElement;
 
   constructor(callbacks: ToolbarCallbacks) {
     this.callbacks = callbacks;
 
-    this.btnBrush = document.getElementById('btn-brush') as HTMLButtonElement;
-    this.btnEraser = document.getElementById('btn-eraser') as HTMLButtonElement;
+    // Bind Tool Buttons
+    const toolIds: { tool: DrawingTool; id: string }[] = [
+      { tool: 'brush', id: 'btn-brush' },
+      { tool: 'eraser', id: 'btn-eraser' },
+      { tool: 'line', id: 'btn-line' },
+      { tool: 'rectangle', id: 'btn-rect' },
+      { tool: 'ellipse', id: 'btn-ellipse' },
+      { tool: 'text', id: 'btn-text' },
+      { tool: 'select', id: 'btn-select' },
+      { tool: 'pan', id: 'btn-pan' },
+    ];
+
+    toolIds.forEach(({ tool, id }) => {
+      const el = document.getElementById(id) as HTMLButtonElement | null;
+      if (el) this.toolButtons.set(tool, el);
+    });
+
     this.colorSwatches = document.querySelectorAll('.color-swatch');
     this.colorPicker = document.getElementById('picker-color') as HTMLInputElement;
     this.widthSlider = document.getElementById('slider-width') as HTMLInputElement;
     this.widthValueText = document.getElementById('width-value') as HTMLElement;
     this.btnUndo = document.getElementById('btn-undo') as HTMLButtonElement;
     this.btnRedo = document.getElementById('btn-redo') as HTMLButtonElement;
+    this.btnZoomIn = document.getElementById('btn-zoom-in') as HTMLButtonElement;
+    this.btnZoomOut = document.getElementById('btn-zoom-out') as HTMLButtonElement;
+    this.btnZoomReset = document.getElementById('btn-zoom-reset') as HTMLButtonElement;
+    this.btnExportPNG = document.getElementById('btn-export-png') as HTMLButtonElement;
+    this.btnExportSVG = document.getElementById('btn-export-svg') as HTMLButtonElement;
 
     this.initEventListeners();
     this.initKeyboardShortcuts();
@@ -54,16 +83,15 @@ export class Toolbar {
 
   private initEventListeners(): void {
     // Tool buttons
-    this.btnBrush.addEventListener('click', () => this.setTool('brush'));
-    this.btnEraser.addEventListener('click', () => this.setTool('eraser'));
+    this.toolButtons.forEach((btn, tool) => {
+      btn.addEventListener('click', () => this.setTool(tool));
+    });
 
     // Color Swatches
     this.colorSwatches.forEach((swatch) => {
       swatch.addEventListener('click', () => {
         const color = swatch.getAttribute('data-color');
-        if (color) {
-          this.setColor(color);
-        }
+        if (color) this.setColor(color);
       });
     });
 
@@ -83,12 +111,28 @@ export class Toolbar {
     // Undo / Redo buttons
     this.btnUndo.addEventListener('click', () => this.callbacks.onUndo());
     this.btnRedo.addEventListener('click', () => this.callbacks.onRedo());
+
+    // Zoom Buttons
+    this.btnZoomIn.addEventListener('click', () => this.callbacks.onZoomIn());
+    this.btnZoomOut.addEventListener('click', () => this.callbacks.onZoomOut());
+    this.btnZoomReset.addEventListener('click', () => this.callbacks.onZoomReset());
+
+    // Export Buttons
+    this.btnExportPNG.addEventListener('click', () => this.callbacks.onExportPNG());
+    this.btnExportSVG.addEventListener('click', () => this.callbacks.onExportSVG());
   }
 
   public setTool(tool: DrawingTool): void {
     this.currentTool = tool;
-    this.btnBrush.classList.toggle('active', tool === 'brush');
-    this.btnEraser.classList.toggle('active', tool === 'eraser');
+    this.toolButtons.forEach((btn, t) => {
+      btn.classList.toggle('active', t === tool);
+    });
+
+    const viewport = document.getElementById('canvas-viewport');
+    if (viewport) {
+      viewport.classList.toggle('pan-mode', tool === 'pan');
+    }
+
     this.callbacks.onToolChange(tool);
   }
 
@@ -113,20 +157,21 @@ export class Toolbar {
 
   private initKeyboardShortcuts(): void {
     window.addEventListener('keydown', (e) => {
-      // Ignore key shortcuts if typing in an input field
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
 
-      if (e.key === 'b' || e.key === 'B') {
-        this.setTool('brush');
-      } else if (e.key === 'e' || e.key === 'E') {
-        this.setTool('eraser');
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        if (e.shiftKey) {
-          this.callbacks.onRedo();
-        } else {
-          this.callbacks.onUndo();
-        }
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+      const key = e.key.toLowerCase();
+      if (key === 'b') this.setTool('brush');
+      else if (key === 'e') this.setTool('eraser');
+      else if (key === 'l') this.setTool('line');
+      else if (key === 'r') this.setTool('rectangle');
+      else if (key === 'o') this.setTool('ellipse');
+      else if (key === 't') this.setTool('text');
+      else if (key === 's') this.setTool('select');
+      else if (key === 'p') this.setTool('pan');
+      else if ((e.ctrlKey || e.metaKey) && key === 'z') {
+        if (e.shiftKey) this.callbacks.onRedo();
+        else this.callbacks.onUndo();
+      } else if ((e.ctrlKey || e.metaKey) && key === 'y') {
         this.callbacks.onRedo();
       }
     });

@@ -1,9 +1,17 @@
 /**
  * Shared TypeScript protocol definitions for Collaborative Drawing Canvas.
- * Used by both client and server to guarantee type safety across network operations.
+ * Extended with advanced vector tools, camera transformations, shape ghosting, and selection.
  */
 
-export type DrawingTool = 'brush' | 'eraser';
+export type DrawingTool =
+  | 'brush'
+  | 'eraser'
+  | 'line'
+  | 'rectangle'
+  | 'ellipse'
+  | 'text'
+  | 'select'
+  | 'pan';
 
 export interface Point {
   /** Normalized x-coordinate relative to canvas width (0.0 to 1.0) */
@@ -27,6 +35,8 @@ export interface DrawingOperation {
   width: number;
   /** Ordered collection of normalized stroke points */
   points: Point[];
+  /** Optional text content for text annotations */
+  text?: string;
   /** Active status flag for global tombstone undo/redo support */
   active: boolean;
 }
@@ -51,6 +61,7 @@ export interface StrokeStartPayload {
   color: string;
   width: number;
   point: Point;
+  text?: string;
 }
 
 export interface StrokeStartBroadcastPayload extends StrokeStartPayload {
@@ -72,6 +83,29 @@ export interface StrokeEndPayload {
 }
 
 export interface StrokeEndBroadcastPayload extends StrokeEndPayload {
+  userId: string;
+}
+
+export interface StrokePreviewPayload {
+  operationId: string;
+  tool: DrawingTool;
+  color: string;
+  width: number;
+  points: Point[];
+  text?: string;
+}
+
+export interface StrokePreviewBroadcastPayload extends StrokePreviewPayload {
+  userId: string;
+}
+
+export interface OperationTransformPayload {
+  operationId: string;
+  deltaX: number;
+  deltaY: number;
+}
+
+export interface OperationTransformBroadcastPayload extends OperationTransformPayload {
   userId: string;
 }
 
