@@ -18,4 +18,16 @@ export default defineConfig({
       '@shared': path.resolve(__dirname, './shared'),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          three: ['three'],
+          socketio: ['socket.io-client'],
+        },
+      },
+    },
+  },
 });
+
