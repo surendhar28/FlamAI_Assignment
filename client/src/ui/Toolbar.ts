@@ -1,4 +1,5 @@
 import { DrawingTool } from '../../../shared/protocol';
+import { ViewPreset } from '../canvas/Canvas3DManager';
 
 export interface ToolbarCallbacks {
   onToolChange: (tool: DrawingTool) => void;
@@ -6,36 +7,28 @@ export interface ToolbarCallbacks {
   onWidthChange: (width: number) => void;
   onUndo: () => void;
   onRedo: () => void;
-  onZoomIn: () => void;
-  onZoomOut: () => void;
-  onZoomReset: () => void;
-  onToggleGrid: () => void;
-  onToggleSnap: () => void;
+  onViewPresetChange: (preset: ViewPreset) => void;
+  onExportOBJ: () => void;
   onExportPNG: () => void;
-  onExportSVG: () => void;
 }
 
 export class Toolbar {
   private callbacks: ToolbarCallbacks;
   private currentTool: DrawingTool = 'brush';
-  private currentColor: string = '#1E293B';
+  private currentColor: string = '#3B82F6';
   private currentWidth: number = 5;
 
   // DOM Elements
   private toolButtons: Map<DrawingTool, HTMLButtonElement> = new Map();
+  private viewButtons: Map<ViewPreset, HTMLButtonElement> = new Map();
   private colorSwatches: NodeListOf<HTMLButtonElement>;
   private colorPicker: HTMLInputElement;
   private widthSlider: HTMLInputElement;
   private widthValueText: HTMLElement;
   private btnUndo: HTMLButtonElement;
   private btnRedo: HTMLButtonElement;
-  private btnZoomIn: HTMLButtonElement;
-  private btnZoomOut: HTMLButtonElement;
-  private btnZoomReset: HTMLButtonElement;
-  private btnGridToggle: HTMLButtonElement;
-  private btnSnapToggle: HTMLButtonElement;
+  private btnExportOBJ: HTMLButtonElement;
   private btnExportPNG: HTMLButtonElement;
-  private btnExportSVG: HTMLButtonElement;
 
   constructor(callbacks: ToolbarCallbacks) {
     this.callbacks = callbacks;
@@ -43,17 +36,30 @@ export class Toolbar {
     const toolIds: { tool: DrawingTool; id: string }[] = [
       { tool: 'brush', id: 'btn-brush' },
       { tool: 'eraser', id: 'btn-eraser' },
+      { tool: 'box', id: 'btn-box' },
+      { tool: 'sphere', id: 'btn-sphere' },
+      { tool: 'cylinder', id: 'btn-cylinder' },
       { tool: 'line', id: 'btn-line' },
-      { tool: 'rectangle', id: 'btn-rect' },
-      { tool: 'ellipse', id: 'btn-ellipse' },
       { tool: 'text', id: 'btn-text' },
       { tool: 'select', id: 'btn-select' },
-      { tool: 'pan', id: 'btn-pan' },
+      { tool: 'orbit', id: 'btn-orbit' },
     ];
 
     toolIds.forEach(({ tool, id }) => {
       const el = document.getElementById(id) as HTMLButtonElement | null;
       if (el) this.toolButtons.set(tool, el);
+    });
+
+    const viewIds: { preset: ViewPreset; id: string }[] = [
+      { preset: 'isometric', id: 'btn-view-iso' },
+      { preset: 'top', id: 'btn-view-top' },
+      { preset: 'front', id: 'btn-view-front' },
+      { preset: 'side', id: 'btn-view-side' },
+    ];
+
+    viewIds.forEach(({ preset, id }) => {
+      const el = document.getElementById(id) as HTMLButtonElement | null;
+      if (el) this.viewButtons.set(preset, el);
     });
 
     this.colorSwatches = document.querySelectorAll('.color-swatch');
@@ -62,13 +68,8 @@ export class Toolbar {
     this.widthValueText = document.getElementById('width-value') as HTMLElement;
     this.btnUndo = document.getElementById('btn-undo') as HTMLButtonElement;
     this.btnRedo = document.getElementById('btn-redo') as HTMLButtonElement;
-    this.btnZoomIn = document.getElementById('btn-zoom-in') as HTMLButtonElement;
-    this.btnZoomOut = document.getElementById('btn-zoom-out') as HTMLButtonElement;
-    this.btnZoomReset = document.getElementById('btn-zoom-reset') as HTMLButtonElement;
-    this.btnGridToggle = document.getElementById('btn-grid-toggle') as HTMLButtonElement;
-    this.btnSnapToggle = document.getElementById('btn-snap-toggle') as HTMLButtonElement;
+    this.btnExportOBJ = document.getElementById('btn-export-obj') as HTMLButtonElement;
     this.btnExportPNG = document.getElementById('btn-export-png') as HTMLButtonElement;
-    this.btnExportSVG = document.getElementById('btn-export-svg') as HTMLButtonElement;
 
     this.initEventListeners();
     this.initKeyboardShortcuts();
@@ -89,6 +90,14 @@ export class Toolbar {
   private initEventListeners(): void {
     this.toolButtons.forEach((btn, tool) => {
       btn.addEventListener('click', () => this.setTool(tool));
+    });
+
+    this.viewButtons.forEach((btn, preset) => {
+      btn.addEventListener('click', () => {
+        this.viewButtons.forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.callbacks.onViewPresetChange(preset);
+      });
     });
 
     this.colorSwatches.forEach((swatch) => {
@@ -112,18 +121,8 @@ export class Toolbar {
     this.btnUndo.addEventListener('click', () => this.callbacks.onUndo());
     this.btnRedo.addEventListener('click', () => this.callbacks.onRedo());
 
-    this.btnZoomIn.addEventListener('click', () => this.callbacks.onZoomIn());
-    this.btnZoomOut.addEventListener('click', () => this.callbacks.onZoomOut());
-    this.btnZoomReset.addEventListener('click', () => this.callbacks.onZoomReset());
-
-    this.btnGridToggle.addEventListener('click', () => this.callbacks.onToggleGrid());
-    this.btnSnapToggle.addEventListener('click', () => {
-      this.callbacks.onToggleSnap();
-      this.btnSnapToggle.classList.toggle('active');
-    });
-
+    this.btnExportOBJ.addEventListener('click', () => this.callbacks.onExportOBJ());
     this.btnExportPNG.addEventListener('click', () => this.callbacks.onExportPNG());
-    this.btnExportSVG.addEventListener('click', () => this.callbacks.onExportSVG());
   }
 
   public setTool(tool: DrawingTool): void {
@@ -131,12 +130,6 @@ export class Toolbar {
     this.toolButtons.forEach((btn, t) => {
       btn.classList.toggle('active', t === tool);
     });
-
-    const viewport = document.getElementById('canvas-viewport');
-    if (viewport) {
-      viewport.classList.toggle('pan-mode', tool === 'pan');
-    }
-
     this.callbacks.onToolChange(tool);
   }
 
@@ -155,7 +148,7 @@ export class Toolbar {
   public setWidth(width: number): void {
     this.currentWidth = width;
     this.widthSlider.value = width.toString();
-    this.widthValueText.textContent = `${width}px`;
+    this.widthValueText.textContent = `${width}`;
     this.callbacks.onWidthChange(width);
   }
 
@@ -166,12 +159,12 @@ export class Toolbar {
       const key = e.key.toLowerCase();
       if (key === 'b') this.setTool('brush');
       else if (key === 'e') this.setTool('eraser');
+      else if (key === 'x') this.setTool('box');
+      else if (key === 's') this.setTool('sphere');
+      else if (key === 'c') this.setTool('cylinder');
       else if (key === 'l') this.setTool('line');
-      else if (key === 'r') this.setTool('rectangle');
-      else if (key === 'o') this.setTool('ellipse');
       else if (key === 't') this.setTool('text');
-      else if (key === 's') this.setTool('select');
-      else if (key === 'p') this.setTool('pan');
+      else if (key === 'o') this.setTool('orbit');
       else if ((e.ctrlKey || e.metaKey) && key === 'z') {
         if (e.shiftKey) this.callbacks.onRedo();
         else this.callbacks.onUndo();

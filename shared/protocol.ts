@@ -1,24 +1,30 @@
 /**
- * Shared TypeScript protocol definitions for Collaborative Drawing Canvas.
- * Elevated with multi-layer support, grid snapping, real-time object transformation, and time-lapse replay.
+ * Shared TypeScript protocol definitions for Real-Time Collaborative 3D Spatial Canvas.
+ * Supports 3D spatial points, 3D mesh geometries, camera angles, and presence tracking.
  */
 
 export type DrawingTool =
   | 'brush'
   | 'eraser'
   | 'line'
-  | 'rectangle'
-  | 'ellipse'
+  | 'box'
+  | 'sphere'
+  | 'cylinder'
   | 'text'
   | 'select'
-  | 'pan';
+  | 'orbit';
 
-export interface Point {
-  /** Normalized x-coordinate relative to canvas width (0.0 to 1.0) */
+export interface Point3D {
+  /** Spatial X-coordinate in 3D world space */
   x: number;
-  /** Normalized y-coordinate relative to canvas height (0.0 to 1.0) */
+  /** Spatial Y-coordinate in 3D world space */
   y: number;
+  /** Spatial Z-coordinate in 3D world space */
+  z: number;
 }
+
+// Backward compatibility alias for Point
+export type Point = Point3D;
 
 export interface CanvasLayer {
   id: string;
@@ -28,21 +34,21 @@ export interface CanvasLayer {
 }
 
 export interface DrawingOperation {
-  /** Unique client-generated UUID for the stroke */
+  /** Unique client-generated UUID for the stroke/mesh */
   id: string;
   /** Monotonically increasing server-assigned sequence number */
   sequence: number;
   /** Author user ID */
   userId: string;
-  /** Active tool type */
+  /** Active 3D tool type */
   tool: DrawingTool;
-  /** Hex stroke color */
+  /** Hex stroke/material color */
   color: string;
-  /** Stroke line width in CSS pixels */
+  /** Line/mesh size width in 3D world units */
   width: number;
-  /** Ordered collection of normalized stroke points */
-  points: Point[];
-  /** Optional text content for text annotations */
+  /** Ordered collection of 3D spatial points */
+  points: Point3D[];
+  /** Optional text content for 3D text annotations */
   text?: string;
   /** Target layer ID */
   layerId?: string;
@@ -54,7 +60,7 @@ export interface UserPresence {
   id: string;
   name: string;
   color: string;
-  cursor?: Point;
+  cursor?: Point3D;
 }
 
 // Socket.IO Payload Interfaces
@@ -69,7 +75,7 @@ export interface StrokeStartPayload {
   tool: DrawingTool;
   color: string;
   width: number;
-  point: Point;
+  point: Point3D;
   text?: string;
   layerId?: string;
 }
@@ -81,7 +87,7 @@ export interface StrokeStartBroadcastPayload extends StrokeStartPayload {
 
 export interface StrokeChunkPayload {
   operationId: string;
-  points: Point[];
+  points: Point3D[];
 }
 
 export interface StrokeChunkBroadcastPayload extends StrokeChunkPayload {
@@ -100,6 +106,7 @@ export interface OperationTransformPayload {
   operationId: string;
   deltaX: number;
   deltaY: number;
+  deltaZ: number;
 }
 
 export interface OperationTransformBroadcastPayload extends OperationTransformPayload {
@@ -107,12 +114,12 @@ export interface OperationTransformBroadcastPayload extends OperationTransformPa
 }
 
 export interface CursorMovePayload {
-  position: Point;
+  position: Point3D;
 }
 
 export interface CursorUpdateBroadcastPayload {
   userId: string;
-  position: Point;
+  position: Point3D;
 }
 
 export interface RoomStatePayload {

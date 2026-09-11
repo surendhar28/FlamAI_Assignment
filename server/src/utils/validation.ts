@@ -1,21 +1,19 @@
-import { DrawingTool, Point } from '../../../shared/protocol';
+import { DrawingTool, Point3D } from '../../../shared/protocol';
 
 export class SchemaValidator {
   /**
-   * Validates normalized coordinate point.
+   * Validates 3D spatial coordinate point.
    */
-  public static isValidPoint(point: any): point is Point {
+  public static isValidPoint(point: any): point is Point3D {
     return (
       point &&
       typeof point === 'object' &&
       typeof point.x === 'number' &&
       typeof point.y === 'number' &&
+      typeof point.z === 'number' &&
       !isNaN(point.x) &&
       !isNaN(point.y) &&
-      point.x >= 0 &&
-      point.x <= 1 &&
-      point.y >= 0 &&
-      point.y <= 1
+      !isNaN(point.z)
     );
   }
 
@@ -27,11 +25,12 @@ export class SchemaValidator {
       'brush',
       'eraser',
       'line',
-      'rectangle',
-      'ellipse',
+      'box',
+      'sphere',
+      'cylinder',
       'text',
       'select',
-      'pan',
+      'orbit',
     ];
     return validTools.includes(tool);
   }
@@ -41,12 +40,11 @@ export class SchemaValidator {
    */
   public static isValidColor(color: any): boolean {
     if (typeof color !== 'string') return false;
-    // Hex color regex validation
     return /^#([0-9A-F]{3}){1,2}$/i.test(color);
   }
 
   /**
-   * Validates line stroke width.
+   * Validates line stroke width / mesh size.
    */
   public static isValidWidth(width: any): boolean {
     return typeof width === 'number' && !isNaN(width) && width >= 1 && width <= 100;

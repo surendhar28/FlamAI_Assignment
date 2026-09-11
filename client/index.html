@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Real-Time Collaborative Drawing Canvas Engine</title>
+  <title>Real-Time Collaborative 3D Spatial Canvas Engine</title>
   <link rel="stylesheet" href="./styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,8 +14,8 @@
     <!-- Header Navbar -->
     <header class="app-header">
       <div class="brand">
-        <div class="brand-icon">🎨</div>
-        <h1>Collaborative Canvas Engine</h1>
+        <div class="brand-icon">🧊</div>
+        <h1>Collaborative 3D Spatial Canvas</h1>
         <span id="room-badge" class="room-badge">Room: default</span>
       </div>
 
@@ -23,8 +23,8 @@
         <!-- Debug Performance & Camera Stats -->
         <div class="stats-panel" id="stats-panel">
           <span class="stat-item">FPS: <strong id="stat-fps">60</strong></span>
-          <span class="stat-item">Ops: <strong id="stat-ops">0</strong></span>
-          <span class="stat-item">Zoom: <strong id="stat-zoom">100%</strong></span>
+          <span class="stat-item">3D Meshes: <strong id="stat-ops">0</strong></span>
+          <span class="stat-item">View: <strong id="stat-zoom">Isometric</strong></span>
         </div>
 
         <!-- Connection Status Indicator -->
@@ -40,10 +40,10 @@
       <!-- Toolbar -->
       <aside class="toolbar-panel" id="toolbar">
         <div class="tool-section">
-          <label class="section-title">Draw Tools</label>
+          <label class="section-title">3D Drawing Tools</label>
           <div class="btn-grid">
-            <button id="btn-brush" class="tool-btn active" title="Brush (B)">
-              🖌️ Brush
+            <button id="btn-brush" class="tool-btn active" title="3D Freehand Ribbon (B)">
+              🖌️ 3D Ribbon
             </button>
             <button id="btn-eraser" class="tool-btn" title="Eraser (E)">
               🧹 Eraser
@@ -52,79 +52,73 @@
         </div>
 
         <div class="tool-section">
-          <label class="section-title">Shape Tools</label>
+          <label class="section-title">3D Mesh Primitives</label>
           <div class="btn-grid">
-            <button id="btn-line" class="tool-btn" title="Straight Line (L)">
-              📏 Line
+            <button id="btn-box" class="tool-btn" title="3D Cube / Box (X)">
+              🧊 3D Box
             </button>
-            <button id="btn-rect" class="tool-btn" title="Rectangle (R)">
-              ⬛ Rect
+            <button id="btn-sphere" class="tool-btn" title="3D Sphere (S)">
+              🔮 Sphere
             </button>
-            <button id="btn-ellipse" class="tool-btn" title="Ellipse (O)">
-              ⭕ Ellipse
+            <button id="btn-cylinder" class="tool-btn" title="3D Cylinder (C)">
+              🛢️ Cylinder
             </button>
-            <button id="btn-text" class="tool-btn" title="Text Annotation (T)">
-              🔤 Text
+            <button id="btn-line" class="tool-btn" title="3D Line (L)">
+              📏 3D Line
+            </button>
+            <button id="btn-text" class="tool-btn" title="3D Text Annotation (T)">
+              🔤 3D Text
             </button>
           </div>
         </div>
 
         <div class="tool-section">
-          <label class="section-title">Navigation & Select</label>
+          <label class="section-title">Navigation & Selection</label>
           <div class="btn-grid">
-            <button id="btn-select" class="tool-btn" title="Select & Drag Objects (S)">
+            <button id="btn-orbit" class="tool-btn" title="Orbit 3D Camera (Space / Drag Right)">
+              🌐 Orbit
+            </button>
+            <button id="btn-select" class="tool-btn" title="Select 3D Objects">
               🎯 Select
             </button>
-            <button id="btn-pan" class="tool-btn" title="Pan Canvas (Space / P)">
-              🖐️ Pan
+          </div>
+        </div>
+
+        <div class="tool-section">
+          <label class="section-title">3D Camera Views</label>
+          <div class="btn-grid">
+            <button id="btn-view-iso" class="action-btn active" title="Isometric 3D View">
+              🎲 Iso
+            </button>
+            <button id="btn-view-top" class="action-btn" title="Top 2D View">
+              ⬆️ Top
+            </button>
+            <button id="btn-view-front" class="action-btn" title="Front 3D View">
+              👁️ Front
+            </button>
+            <button id="btn-view-side" class="action-btn" title="Side 3D View">
+              ➡️ Side
             </button>
           </div>
         </div>
 
         <div class="tool-section">
-          <label class="section-title">Smart Grid & Snapping</label>
-          <div class="btn-group">
-            <button id="btn-grid-toggle" class="action-btn" title="Toggle Grid Mode">
-              🌐 Grid
-            </button>
-            <button id="btn-snap-toggle" class="action-btn active" title="Toggle Snap to Grid">
-              🧲 Snap
-            </button>
-          </div>
-        </div>
-
-        <div class="tool-section">
-          <label class="section-title">Camera Zoom</label>
-          <div class="btn-group">
-            <button id="btn-zoom-out" class="action-btn" title="Zoom Out (-)">
-              ➖
-            </button>
-            <button id="btn-zoom-reset" class="action-btn" title="Reset Zoom (100%)">
-              100%
-            </button>
-            <button id="btn-zoom-in" class="action-btn" title="Zoom In (+)">
-              ➕
-            </button>
-          </div>
-        </div>
-
-        <div class="tool-section">
-          <label class="section-title">Color</label>
+          <label class="section-title">3D Material Color</label>
           <div class="color-palette">
-            <button class="color-swatch active" data-color="#1E293B" style="background-color: #1E293B"></button>
+            <button class="color-swatch active" data-color="#3B82F6" style="background-color: #3B82F6"></button>
             <button class="color-swatch" data-color="#EF4444" style="background-color: #EF4444"></button>
             <button class="color-swatch" data-color="#F59E0B" style="background-color: #F59E0B"></button>
             <button class="color-swatch" data-color="#10B981" style="background-color: #10B981"></button>
-            <button class="color-swatch" data-color="#3B82F6" style="background-color: #3B82F6"></button>
             <button class="color-swatch" data-color="#8B5CF6" style="background-color: #8B5CF6"></button>
-            <input type="color" id="picker-color" value="#1E293B" class="color-picker-input" title="Custom Color" />
+            <button class="color-swatch" data-color="#EC4899" style="background-color: #EC4899"></button>
+            <input type="color" id="picker-color" value="#3B82F6" class="color-picker-input" title="Custom Color" />
           </div>
         </div>
 
         <div class="tool-section">
           <div class="slider-header">
-            <label class="section-title">Stroke Width</label>
-            <span id="width-value" class="width-value">5px</span>
+            <label class="section-title">Mesh Size / Thickness</label>
+            <span id="width-value" class="width-value">5</span>
           </div>
           <input type="range" id="slider-width" min="1" max="50" value="5" class="width-slider" />
         </div>
@@ -142,32 +136,30 @@
         </div>
 
         <div class="tool-section">
-          <label class="section-title">Export Canvas</label>
+          <label class="section-title">Export 3D Models</label>
           <div class="btn-group">
-            <button id="btn-export-png" class="action-btn" title="Export as High-Res PNG">
-              🖼️ PNG
+            <button id="btn-export-obj" class="action-btn" title="Export as 3D OBJ Model File">
+              🧊 3D OBJ
             </button>
-            <button id="btn-export-svg" class="action-btn" title="Export as Vector SVG">
-              📄 SVG
+            <button id="btn-export-png" class="action-btn" title="Export 3D PNG Snapshot">
+              🖼️ PNG
             </button>
           </div>
         </div>
       </aside>
 
-      <!-- Canvas Area Viewport -->
+      <!-- 3D Canvas WebGL Viewport -->
       <div class="canvas-viewport" id="canvas-viewport">
-        <!-- Main Drawing Canvas -->
+        <!-- Main WebGL 3D Canvas -->
         <canvas id="drawing-canvas"></canvas>
         <!-- Remote Cursor Overlay Canvas -->
         <div id="cursor-overlay" class="cursor-overlay"></div>
 
-        <!-- Floating Time-Lapse Replay Control Bar -->
+        <!-- Floating 3D Navigation Tip -->
         <div class="replay-bar" id="replay-bar">
-          <button id="btn-replay-play" class="replay-btn" title="Play Time-Lapse Replay">▶️</button>
-          <button id="btn-replay-pause" class="replay-btn" title="Pause Replay">⏸️</button>
-          <input type="range" id="replay-slider" min="0" max="0" value="0" class="replay-slider" />
-          <span id="replay-counter" class="replay-counter">0 / 0</span>
-          <button id="btn-replay-speed" class="replay-speed-btn" title="Replay Speed">1x</button>
+          <span style="font-size:0.8rem; font-weight:600; color: #94A3B8;">
+            💡 Tip: Drag with <strong>Right Click</strong> or select <strong>🌐 Orbit</strong> to rotate 3D camera. Scroll mouse wheel to zoom.
+          </span>
         </div>
       </div>
 
@@ -185,8 +177,8 @@
 
         <div class="panel-section">
           <div class="panel-header">
-            <h3>Layers</h3>
-            <button id="btn-add-layer" class="small-add-btn" title="Add New Layer">+</button>
+            <h3>3D Layers</h3>
+            <button id="btn-add-layer" class="small-add-btn" title="Add New 3D Layer">+</button>
           </div>
           <ul id="layer-list" class="layer-list">
             <!-- Populated dynamically -->

@@ -1,65 +1,56 @@
-import { CanvasManager } from './canvas/CanvasManager';
-import { DrawingRenderer } from './canvas/DrawingRenderer';
-import { InputHandler } from './canvas/InputHandler';
+import { Canvas3DManager } from './canvas/Canvas3DManager';
+import { Drawing3DRenderer } from './canvas/Drawing3DRenderer';
+import { Input3DHandler } from './canvas/Input3DHandler';
 import { SocketClient } from './network/SocketClient';
 import { DrawingStore } from './state/DrawingStore';
-import { Cursors } from './ui/Cursors';
+import { Cursors3D } from './ui/Cursors3D';
 import { LayersPanel } from './ui/LayersPanel';
-import { ReplayBar } from './ui/ReplayBar';
 import { StatusIndicator } from './ui/StatusIndicator';
 import { Toolbar } from './ui/Toolbar';
 import { UserList } from './ui/UserList';
-import { CanvasExporter } from './utils/Exporter';
-import { DrawingOperation, Point } from '../../shared/protocol';
+import { Exporter3D } from './utils/Exporter3D';
+import { DrawingOperation, Point3D } from '../../shared/protocol';
 
 class App {
-  private canvasManager: CanvasManager;
-  private renderer: DrawingRenderer;
-  private inputHandler: InputHandler;
+  private canvas3DManager: Canvas3DManager;
+  private renderer3D: Drawing3DRenderer;
+  private input3DHandler: Input3DHandler;
   private toolbar: Toolbar;
   private store: DrawingStore;
   private socketClient: SocketClient;
   private statusIndicator: StatusIndicator;
   private userList: UserList;
   private layersPanel: LayersPanel;
-  private replayBar: ReplayBar;
-  private cursors: Cursors;
+  private cursors3D: Cursors3D;
 
   private currentOpId: string | null = null;
-  private currentOpPoints: Point[] = [];
+  private currentOpPoints: Point3D[] = [];
   private selectedOpId: string | null = null;
-  private selectedOpStartPoints: Point[] = [];
 
   private roomId: string = 'default';
 
-  // Time-Lapse Replay State
-  private isReplaying: boolean = false;
-  private replayIndex: number = 0;
-  private replayTimer: number | null = null;
-  private replaySpeed: number = 1;
-
-  // FPS & Zoom Stats
+  // Stats Elements
   private frameCount: number = 0;
   private lastFpsTime: number = performance.now();
   private fpsEl: HTMLElement | null = null;
-  private zoomEl: HTMLElement | null = null;
+  private viewEl: HTMLElement | null = null;
 
   constructor() {
     const urlParams = new URLSearchParams(window.location.search);
     this.roomId = urlParams.get('room')?.trim() || 'default';
     this.updateRoomBadge(this.roomId);
 
-    // Core Canvas & State
+    // Core 3D Viewport & State Engine
     this.store = new DrawingStore();
-    this.canvasManager = new CanvasManager('drawing-canvas', 'canvas-viewport');
-    this.renderer = new DrawingRenderer(this.canvasManager);
+    this.canvas3DManager = new Canvas3DManager('drawing-canvas', 'canvas-viewport');
+    this.renderer3D = new Drawing3DRenderer(this.canvas3DManager);
 
-    // UI Modules
+    // UI & 3D Presence Modules
     this.statusIndicator = new StatusIndicator();
     this.userList = new UserList(this.store);
-    this.cursors = new Cursors(this.store, this.canvasManager);
+    this.cursors3D = new Cursors3D(this.store, this.canvas3DManager);
     this.fpsEl = document.getElementById('stat-fps');
-    this.zoomEl = document.getElementById('stat-zoom');
+    this.viewEl = document.getElementById('stat-zoom');
 
     // Layers Panel
     this.layersPanel = new LayersPanel({
@@ -67,14 +58,6 @@ class App {
       onLayerAdd: () => this.triggerRedraw(),
       onLayerToggleVisibility: () => this.triggerRedraw(),
       onLayerToggleLock: () => this.triggerRedraw(),
-    });
-
-    // Time-Lapse Replay Bar
-    this.replayBar = new ReplayBar({
-      onPlay: () => this.startReplay(),
-      onPause: () => this.pauseReplay(),
-      onScrub: (idx) => this.scrubReplay(idx),
-      onSpeedChange: (speed) => (this.replaySpeed = speed),
     });
 
     // Toolbar Controls
@@ -87,22 +70,15 @@ class App {
       onWidthChange: () => {},
       onUndo: () => this.socketClient.emitUndo(),
       onRedo: () => this.socketClient.emitRedo(),
-      onZoomIn: () => this.canvasManager.setZoom(this.canvasManager.getZoom() * 1.2),
-      onZoomOut: () => this.canvasManager.setZoom(this.canvasManager.getZoom() / 1.2),
-      onZoomReset: () => this.canvasManager.resetCamera(),
-      onToggleGrid: () => this.canvasManager.toggleGridMode(),
-      onToggleSnap: () => this.canvasManager.toggleSnapToGrid(),
-      onExportPNG: () => CanvasExporter.exportToPNG(this.canvasManager.getCanvas(), `drawing-${this.roomId}.png`),
-      onExportSVG: () =>
-        CanvasExporter.exportToSVG(
-          this.store.getOperations(),
-          this.canvasManager.getCSSWidth(),
-          this.canvasManager.getCSSHeight(),
-          `drawing-${this.roomId}.svg`
-        ),
+      onViewPresetChange: (preset) => {
+        this.canvas3DManager.setViewPreset(preset);
+        if (this.viewEl) this.viewEl.textContent = preset.toUpperCase();
+      },
+      onExportOBJ: () => Exporter3D.exportToOBJ(this.store.getOperations(), `spatial-model-${this.roomId}.obj`),
+      onExportPNG: () => Exporter3D.exportToPNG(this.canvas3DManager.getRenderer(), `spatial-view-${this.roomId}.png`),
     });
 
-    // Network Client
+    // Network Socket.IO Client
     this.socketClient = new SocketClient(this.roomId, this.store, {
       onStatusChange: (status) => this.statusIndicator.setStatus(status),
       onRemoteStrokeStart: () => {},
@@ -110,39 +86,23 @@ class App {
       onRemoteStrokeEnd: () => {},
     });
 
-    // Pointer Input Handler
-    this.inputHandler = new InputHandler(this.canvasManager, () => this.toolbar.getTool(), {
+    // 3D Pointer Raycasting Input Handler
+    this.input3DHandler = new Input3DHandler(this.canvas3DManager, () => this.toolbar.getTool(), {
       onStrokeStart: (point) => this.handleStrokeStart(point),
       onStrokeMove: (point, prevPoint, shiftKey) => this.handleStrokeMove(point, prevPoint, shiftKey),
       onStrokeEnd: () => this.handleStrokeEnd(),
       onCursorMove: (point) => this.socketClient.emitCursorMove(point),
-      onPan: (dx, dy) => this.canvasManager.setPan(dx, dy),
-      onZoom: (factor, center) => this.canvasManager.setZoom(this.canvasManager.getZoom() * factor, center),
       onTextPrompt: (point) => this.handleTextPrompt(point),
       onSelectClick: (point) => this.handleSelectClick(point),
     });
 
-    this.canvasManager.setResizeCallback(() => this.triggerRedraw());
-    this.store.subscribe(() => {
-      this.triggerRedraw();
-      this.updateReplayBar();
-    });
+    this.canvas3DManager.setResizeCallback(() => this.triggerRedraw());
+    this.store.subscribe(() => this.triggerRedraw());
 
     this.startFpsLoop();
   }
 
   private triggerRedraw(): void {
-    if (this.isReplaying) {
-      const activeOps = this.store
-        .getOperations()
-        .filter((o) => o.active)
-        .sort((a, b) => a.sequence - b.sequence)
-        .slice(0, this.replayIndex);
-      this.renderer.reconstructCanvas(activeOps, null);
-      return;
-    }
-
-    // Filter operations by visible layers
     const visibleLayerIds = new Set(
       this.layersPanel
         .getLayers()
@@ -151,81 +111,50 @@ class App {
     );
 
     const ops = this.store.getOperations().filter((op) => !op.layerId || visibleLayerIds.has(op.layerId));
-    this.renderer.reconstructCanvas(ops, this.selectedOpId);
+    this.renderer3D.reconstruct3DScene(ops, this.selectedOpId);
     this.updateStats();
   }
 
-  private handleStrokeStart(point: Point): void {
+  private handleStrokeStart(point: Point3D): void {
     const tool = this.toolbar.getTool();
-    if (tool === 'select' || tool === 'pan' || tool === 'text') return;
+    if (tool === 'select' || tool === 'orbit' || tool === 'text') return;
 
     const color = this.toolbar.getColor();
     const width = this.toolbar.getWidth();
     const layerId = this.layersPanel.getActiveLayerId();
 
-    this.currentOpId = `op_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    this.currentOpId = `op3d_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.currentOpPoints = [point];
-
-    if (tool === 'brush' || tool === 'eraser') {
-      this.renderer.renderDot(tool, color, width, point);
-    }
 
     this.socketClient.emitStrokeStart(this.currentOpId, tool, color, width, point);
   }
 
-  private handleStrokeMove(point: Point, prevPoint: Point, shiftKey: boolean): void {
-    const tool = this.toolbar.getTool();
-
-    // Drag-to-Move Selected Object
-    if (tool === 'select' && this.selectedOpId) {
-      const selectedOp = this.store.getOperations().find((o) => o.id === this.selectedOpId);
-      if (selectedOp && selectedOp.points) {
-        const deltaX = point.x - prevPoint.x;
-        const deltaY = point.y - prevPoint.y;
-        selectedOp.points.forEach((p) => {
-          p.x += deltaX;
-          p.y += deltaY;
-        });
-        this.triggerRedraw();
-      }
-      return;
-    }
-
+  private handleStrokeMove(point: Point3D, prevPoint: Point3D, shiftKey: boolean): void {
     if (!this.currentOpId) return;
 
+    const tool = this.toolbar.getTool();
     const color = this.toolbar.getColor();
     const width = this.toolbar.getWidth();
 
     if (tool === 'brush' || tool === 'eraser') {
       this.currentOpPoints.push(point);
-      this.renderer.renderSegment(tool, color, width, prevPoint, point);
       this.socketClient.emitStrokePoint(this.currentOpId, point);
+
+      // Render 3D live stroke
+      const activeOp: DrawingOperation = {
+        id: this.currentOpId,
+        sequence: 999999,
+        userId: 'local',
+        tool,
+        color,
+        width,
+        points: this.currentOpPoints,
+        active: true,
+      };
+      this.renderer3D.renderOperation(activeOp);
     } else {
-      // Shape tools with Shift key aspect ratio constraining
-      let endPoint = point;
-      if (shiftKey && this.currentOpPoints.length > 0) {
-        const start = this.currentOpPoints[0];
-        const dx = Math.abs(point.x - start.x);
-        const dy = Math.abs(point.y - start.y);
-        const maxDist = Math.max(dx, dy);
-
-        if (tool === 'rectangle' || tool === 'ellipse') {
-          // Constrain 1:1 Aspect Ratio (Square / Circle)
-          endPoint = {
-            x: start.x + (point.x >= start.x ? maxDist : -maxDist),
-            y: start.y + (point.y >= start.y ? maxDist : -maxDist),
-          };
-        } else if (tool === 'line') {
-          // Constrain 45-degree angle increments
-          if (dx > dy * 2) endPoint = { x: point.x, y: start.y };
-          else if (dy > dx * 2) endPoint = { x: start.x, y: point.y };
-          else endPoint = { x: start.x + (point.x >= start.x ? maxDist : -maxDist), y: start.y + (point.y >= start.y ? maxDist : -maxDist) };
-        }
-      }
-
-      this.currentOpPoints = [this.currentOpPoints[0], endPoint];
-      this.triggerRedraw();
-
+      // 3D Mesh Primitives (box, sphere, cylinder, line)
+      this.currentOpPoints = [this.currentOpPoints[0], point];
       const previewOp: DrawingOperation = {
         id: this.currentOpId,
         sequence: 999999,
@@ -236,7 +165,7 @@ class App {
         points: this.currentOpPoints,
         active: true,
       };
-      this.renderer.renderOperation(previewOp);
+      this.renderer3D.renderOperation(previewOp);
     }
   }
 
@@ -255,50 +184,32 @@ class App {
     this.currentOpPoints = [];
   }
 
-  private handleTextPrompt(point: Point): void {
-    const text = prompt('Enter Text Annotation:');
+  private handleTextPrompt(point: Point3D): void {
+    const text = prompt('Enter 3D Text Annotation:');
     if (!text || text.trim() === '') return;
 
     const tool = 'text';
     const color = this.toolbar.getColor();
     const width = this.toolbar.getWidth();
-    const opId = `op_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const opId = `op3d_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     this.socketClient.emitStrokeStart(opId, tool, color, width, point);
     this.socketClient.emitStrokeEnd(opId);
   }
 
-  private handleSelectClick(clickPoint: Point): void {
+  private handleSelectClick(clickPoint: Point3D): void {
     const ops = this.store
       .getOperations()
       .filter((o) => o.active)
       .sort((a, b) => b.sequence - a.sequence);
 
-    const cssW = this.canvasManager.getCSSWidth();
-    const cssH = this.canvasManager.getCSSHeight();
-    const clickPx = { x: clickPoint.x * cssW, y: clickPoint.y * cssH };
-
     let foundOp: DrawingOperation | null = null;
 
     for (const op of ops) {
       if (!op.points || op.points.length === 0) continue;
-      const pxPoints = op.points.map((p) => ({ x: p.x * cssW, y: p.y * cssH }));
-
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      pxPoints.forEach((p) => {
-        if (p.x < minX) minX = p.x;
-        if (p.y < minY) minY = p.y;
-        if (p.x > maxX) maxX = p.x;
-        if (p.y > maxY) maxY = p.y;
-      });
-
-      const padding = 12;
-      if (
-        clickPx.x >= minX - padding &&
-        clickPx.x <= maxX + padding &&
-        clickPx.y >= minY - padding &&
-        clickPx.y <= maxY + padding
-      ) {
+      const p = op.points[0];
+      const dist = Math.hypot(clickPoint.x - p.x, clickPoint.z - p.z);
+      if (dist < 3.0) {
         foundOp = op;
         break;
       }
@@ -306,60 +217,6 @@ class App {
 
     this.selectedOpId = foundOp ? foundOp.id : null;
     this.triggerRedraw();
-  }
-
-  // --- Time-Lapse Replay Engine ---
-
-  private startReplay(): void {
-    const activeOps = this.store.getOperations().filter((o) => o.active);
-    if (activeOps.length === 0) return;
-
-    this.isReplaying = true;
-    if (this.replayIndex >= activeOps.length) {
-      this.replayIndex = 0;
-    }
-
-    this.stepReplay();
-  }
-
-  private stepReplay(): void {
-    const activeOps = this.store.getOperations().filter((o) => o.active);
-    if (!this.isReplaying || this.replayIndex >= activeOps.length) {
-      this.pauseReplay();
-      return;
-    }
-
-    this.replayIndex++;
-    this.triggerRedraw();
-    this.updateReplayBar();
-
-    const interval = Math.max(50, 400 / this.replaySpeed);
-    this.replayTimer = window.setTimeout(() => this.stepReplay(), interval);
-  }
-
-  private pauseReplay(): void {
-    this.isReplaying = false;
-    if (this.replayTimer !== null) {
-      clearTimeout(this.replayTimer);
-      this.replayTimer = null;
-    }
-    this.replayBar.setPlayingState(false);
-  }
-
-  private scrubReplay(index: number): void {
-    this.pauseReplay();
-    this.isReplaying = true;
-    this.replayIndex = index;
-    this.triggerRedraw();
-    this.updateReplayBar();
-  }
-
-  private updateReplayBar(): void {
-    const activeOps = this.store.getOperations().filter((o) => o.active);
-    if (!this.isReplaying) {
-      this.replayIndex = activeOps.length;
-    }
-    this.replayBar.updateRange(activeOps.length, this.replayIndex);
   }
 
   private updateRoomBadge(roomId: string): void {
@@ -372,9 +229,6 @@ class App {
     if (opsEl) {
       const activeCount = this.store.getOperations().filter((o) => o.active).length;
       opsEl.textContent = activeCount.toString();
-    }
-    if (this.zoomEl) {
-      this.zoomEl.textContent = `${Math.round(this.canvasManager.getZoom() * 100)}%`;
     }
   }
 
