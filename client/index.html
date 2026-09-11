@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Real-Time Collaborative Drawing Canvas</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app">
+    <!-- Header Navbar -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">🎨</div>
+        <h1>Collaborative Canvas</h1>
+        <span id="room-badge" class="room-badge">Room: default</span>
+      </div>
+
+      <div class="header-right">
+        <!-- Debug Performance Stats -->
+        <div class="stats-panel" id="stats-panel">
+          <span class="stat-item">FPS: <strong id="stat-fps">60</strong></span>
+          <span class="stat-item">Ops: <strong id="stat-ops">0</strong></span>
+          <span class="stat-item">Latency: <strong id="stat-latency">--</strong>ms</span>
+        </div>
+
+        <!-- Connection Status Indicator -->
+        <div id="connection-status" class="status-indicator status-disconnected">
+          <span class="status-dot"></span>
+          <span id="status-text" class="status-text">Disconnected</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="workspace">
+      <!-- Toolbar -->
+      <aside class="toolbar-panel" id="toolbar">
+        <div class="tool-section">
+          <label class="section-title">Tools</label>
+          <div class="btn-group">
+            <button id="btn-brush" class="tool-btn active" title="Brush (B)">
+              🖌️ Brush
+            </button>
+            <button id="btn-eraser" class="tool-btn" title="Eraser (E)">
+              🧹 Eraser
+            </button>
+          </div>
+        </div>
+
+        <div class="tool-section">
+          <label class="section-title">Color</label>
+          <div class="color-palette">
+            <button class="color-swatch active" data-color="#1E293B" style="background-color: #1E293B"></button>
+            <button class="color-swatch" data-color="#EF4444" style="background-color: #EF4444"></button>
+            <button class="color-swatch" data-color="#F59E0B" style="background-color: #F59E0B"></button>
+            <button class="color-swatch" data-color="#10B981" style="background-color: #10B981"></button>
+            <button class="color-swatch" data-color="#3B82F6" style="background-color: #3B82F6"></button>
+            <button class="color-swatch" data-color="#8B5CF6" style="background-color: #8B5CF6"></button>
+            <input type="color" id="picker-color" value="#1E293B" class="color-picker-input" title="Custom Color" />
+          </div>
+        </div>
+
+        <div class="tool-section">
+          <div class="slider-header">
+            <label class="section-title">Stroke Width</label>
+            <span id="width-value" class="width-value">5px</span>
+          </div>
+          <input type="range" id="slider-width" min="1" max="50" value="5" class="width-slider" />
+        </div>
+
+        <div class="tool-section">
+          <label class="section-title">Global History</label>
+          <div class="btn-group">
+            <button id="btn-undo" class="action-btn" title="Global Undo (Ctrl+Z)">
+              ↩️ Undo
+            </button>
+            <button id="btn-redo" class="action-btn" title="Global Redo (Ctrl+Y)">
+              ↪️ Redo
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Canvas Area -->
+      <div class="canvas-viewport" id="canvas-viewport">
+        <!-- Main Drawing Canvas -->
+        <canvas id="drawing-canvas"></canvas>
+        <!-- Remote Cursor Overlay Canvas -->
+        <div id="cursor-overlay" class="cursor-overlay"></div>
+      </div>
+
+      <!-- Online Users Panel -->
+      <aside class="presence-panel">
+        <div class="presence-header">
+          <h3>Online Users</h3>
+          <span id="user-count-badge" class="user-count-badge">0</span>
+        </div>
+        <ul id="user-list" class="user-list">
+          <!-- Populated dynamically -->
+        </ul>
+      </aside>
+    </main>
+  </div>
+
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>
