@@ -16,6 +16,7 @@ export class Input3DHandler {
 
   private isDrawing: boolean = false;
   private isNavigating: boolean = false;
+  private isSpacePressed: boolean = false;
   private activeToolGetter: () => DrawingTool = () => 'brush';
 
   private lastPoint: Point3D | null = null;
@@ -41,6 +42,13 @@ export class Input3DHandler {
     canvas.addEventListener('pointerup', this.handlePointerUp);
     canvas.addEventListener('pointercancel', this.handlePointerUp);
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') this.isSpacePressed = true;
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'Space') this.isSpacePressed = false;
+    });
   }
 
   private handlePointerDown = (e: PointerEvent): void => {
@@ -48,7 +56,7 @@ export class Input3DHandler {
     const isRightClick = e.button === 2;
     const isOrbitTool = currentTool === 'orbit';
 
-    if (isRightClick || isOrbitTool || e.spaceKey) {
+    if (isRightClick || isOrbitTool || this.isSpacePressed) {
       // 3D Navigation mode (Orbit / Pan camera)
       this.isNavigating = true;
       this.lastScreenPx = { x: e.clientX, y: e.clientY };

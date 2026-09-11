@@ -63,7 +63,7 @@ export class DrawingRenderer {
     ctx.save();
     this.configureContext(ctx, op.tool, op.color, op.width);
 
-    switch (op.tool) {
+    switch (op.tool as string) {
       case 'line':
         this.renderLinePath(ctx, pxPoints);
         break;
@@ -272,6 +272,27 @@ export class DrawingRenderer {
       if (selectedOp) {
         this.renderSelectionBoundingBox(selectedOp);
       }
+    }
+  }
+
+  private configureContext(
+    ctx: CanvasRenderingContext2D,
+    tool: DrawingTool,
+    color: string,
+    width: number
+  ): void {
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = width;
+
+    if (tool === 'eraser') {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.strokeStyle = 'rgba(0,0,0,1)';
+      ctx.fillStyle = 'rgba(0,0,0,1)';
+    } else {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
     }
   }
 }

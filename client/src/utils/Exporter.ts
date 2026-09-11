@@ -44,7 +44,7 @@ export class CanvasExporter {
         return;
       }
 
-      if (op.tool === 'rectangle') {
+      if ((op.tool as string) === 'rectangle') {
         const start = pxPoints[0];
         const end = pxPoints[pxPoints.length - 1];
         const x = Math.min(start.x, end.x);
@@ -55,7 +55,7 @@ export class CanvasExporter {
         return;
       }
 
-      if (op.tool === 'ellipse') {
+      if ((op.tool as string) === 'ellipse') {
         const start = pxPoints[0];
         const end = pxPoints[pxPoints.length - 1];
         const cx = (start.x + end.x) / 2;

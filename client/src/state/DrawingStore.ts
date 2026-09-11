@@ -1,4 +1,4 @@
-import { DrawingOperation, Point, UserPresence } from '../../../shared/protocol';
+import { DrawingOperation, Point3D, UserPresence } from '../../../shared/protocol';
 
 export type StoreChangeListener = () => void;
 
@@ -41,7 +41,7 @@ export class DrawingStore {
     this.notify();
   }
 
-  public appendPointsToOperation(operationId: string, newPoints: Point[]): void {
+  public appendPointsToOperation(operationId: string, newPoints: Point3D[]): void {
     const op = this.operationMap.get(operationId);
     if (op) {
       op.points.push(...newPoints);
@@ -92,7 +92,7 @@ export class DrawingStore {
     this.notify();
   }
 
-  public updateUserCursor(userId: string, cursor: { x: number; y: number }): void {
+  public updateUserCursor(userId: string, cursor: Point3D): void {
     const user = this.users.get(userId);
     if (user) {
       user.cursor = cursor;

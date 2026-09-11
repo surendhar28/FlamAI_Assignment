@@ -18,6 +18,7 @@ export class InputHandler {
 
   private isDrawing: boolean = false;
   private isPanning: boolean = false;
+  private isSpacePressed: boolean = false;
   private activeToolGetter: () => DrawingTool = () => 'brush';
 
   private lastPoint: Point | null = null;
@@ -43,14 +44,21 @@ export class InputHandler {
     canvas.addEventListener('pointerup', this.handlePointerUp);
     canvas.addEventListener('pointercancel', this.handlePointerUp);
     canvas.addEventListener('wheel', this.handleWheel, { passive: false });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') this.isSpacePressed = true;
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'Space') this.isSpacePressed = false;
+    });
   }
 
   private handlePointerDown = (e: PointerEvent): void => {
     const currentTool = this.activeToolGetter();
     const isMiddleClick = e.button === 1;
-    const isPanTool = currentTool === 'pan';
+    const isPanTool = (currentTool as string) === 'pan';
 
-    if (isMiddleClick || isPanTool || e.spaceKey) {
+    if (isMiddleClick || isPanTool || this.isSpacePressed) {
       this.isPanning = true;
       this.lastScreenPx = { x: e.clientX, y: e.clientY };
       const canvas = this.canvasManager.getCanvas();
@@ -60,13 +68,13 @@ export class InputHandler {
 
     if (e.button !== 0 && e.pointerType === 'mouse') return;
 
-    if (currentTool === 'select') {
+    if ((currentTool as string) === 'select') {
       const normPoint = this.canvasManager.normalizeCoordinates(e.clientX, e.clientY);
       this.callbacks.onSelectClick(normPoint);
       return;
     }
 
-    if (currentTool === 'text') {
+    if ((currentTool as string) === 'text') {
       const normPoint = this.canvasManager.normalizeCoordinates(e.clientX, e.clientY);
       this.callbacks.onTextPrompt(normPoint);
       return;

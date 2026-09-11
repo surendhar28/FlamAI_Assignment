@@ -181,6 +181,7 @@ export class CanvasManager {
     return {
       x: this.width > 0 ? worldPx.x / this.width : 0,
       y: this.height > 0 ? worldPx.y / this.height : 0,
+      z: 0,
     };
   }
 
